@@ -6,8 +6,8 @@ Automated Kubernetes cluster deployment using Vagrant and Ansible. Creates a pro
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd <repo-name>
+git clone git@github.com:chameauu/K8S-IaC.git
+cd K8S-IaC
 
 # Start the cluster
 vagrant up
