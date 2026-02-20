@@ -1,0 +1,9 @@
+---
+- name: Setup Kubernetes cluster with tools VM
+  hosts: all
+  gather_facts: yes
+
+- import_playbook: common.yml
+- import_playbook: master.yml
+- import_playbook: workers.yml
+- import_playbook: tools.yml

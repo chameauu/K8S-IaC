@@ -1,0 +1,75 @@
+---
+- name: Setup tools VM
+  hosts: tools
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install useful tools
+      apt:
+        name:
+          - curl
+          - wget
+          - vim
+          - git
+          - net-tools
+          - dnsutils
+          - iputils-ping
+        state: present
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Kubernetes GPG key
+      shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Add Kubernetes repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+        state: present
+        filename: kubernetes
+
+    - name: Install kubectl
+      apt:
+        name: kubectl
+        state: present
+        update_cache: yes
+
+    - name: Create .kube directory for vagrant user
+      file:
+        path: /home/vagrant/.kube
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+
+    - name: Wait for kubeconfig on master
+      wait_for:
+        path: /home/vagrant/.kube/config
+        timeout: 300
+      delegate_to: master
+      become: no
+
+    - name: Fetch kubeconfig from master
+      fetch:
+        src: /home/vagrant/.kube/config
+        dest: /tmp/k8s-kubeconfig
+        flat: yes
+      delegate_to: master
+      become: no
+
+    - name: Copy kubeconfig to tools VM
+      copy:
+        src: /tmp/k8s-kubeconfig
+        dest: /home/vagrant/.kube/config
+        owner: vagrant
+        group: vagrant
+        mode: '0644'

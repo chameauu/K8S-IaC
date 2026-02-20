@@ -1,0 +1,9 @@
+.vagrant/
+*.log
+join-command.sh
+
+docs/
+scripts/
+work/
+workshop/
+.vscode/

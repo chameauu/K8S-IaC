@@ -1,0 +1,23 @@
+---
+- name: Join worker nodes to Kubernetes cluster
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Check if node is already joined
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Get join command from master
+      set_fact:
+        join_command: "{{ hostvars['master']['join_command'] }}"
+      when: not kubelet_conf.stat.exists
+
+    - name: Display join command
+      debug:
+        msg: "Using join command: {{ join_command }}"
+      when: not kubelet_conf.stat.exists
+
+    - name: Join the cluster
+      shell: "{{ join_command }}"
+      when: not kubelet_conf.stat.exists
