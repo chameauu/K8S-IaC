@@ -23,8 +23,8 @@ That's it! You now have a fully functional Kubernetes cluster.
 
 - [VirtualBox](https://www.virtualbox.org/) 6.1+
 - [Vagrant](https://www.vagrantup.com/) 2.3+
-- [Ansible](https://www.ansible.com/) 2.12+
-- 8GB+ RAM available
+- [Ansible](https://www.ansible.com/) 2.12+ (installed on host machine)
+- 7GB+ RAM available (2GB master + 2GB node1 + 2GB node2 + 1GB tools)
 - 20GB+ free disk space
 
 ## 🏗️ Architecture
@@ -46,6 +46,7 @@ That's it! You now have a fully functional Kubernetes cluster.
 │  │  │   Tools VM   │  (Management - NOT in cluster)  │ │
 │  │  │ .57.30       │                                  │ │
 │  │  │ 1GB RAM      │                                  │ │
+│  │  │ 1 CPU        │                                  │ │
 │  │  └──────────────┘                                  │ │
 │  └────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
@@ -69,23 +70,23 @@ That's it! You now have a fully functional Kubernetes cluster.
 ## 📦 What Gets Installed
 
 ### On All Cluster Nodes (Master + Workers)
-- Ubuntu 22.04 LTS
+- Ubuntu 22.04 LTS (Jammy)
 - containerd (container runtime)
-- kubelet, kubeadm, kubectl
-- Flannel CNI
-- Required kernel modules and sysctl settings
+- kubelet, kubeadm, kubectl (v1.28)
+- Required kernel modules (overlay, br_netfilter) and sysctl settings
 
 ### On Master Node
-- Kubernetes control plane
-- API server (accessible on port 6443)
+- Kubernetes control plane (initialized with kubeadm)
+- API server (accessible on port 6443, forwarded to host)
 - Scheduler
 - Controller manager
 - etcd
+- Flannel CNI (installed on master)
 
 ### On Tools VM
-- kubectl only
-- Cluster admin kubeconfig
-- Useful utilities (curl, vim, git, etc.)
+- kubectl (v1.28)
+- Cluster admin kubeconfig (copied from master)
+- Useful utilities (curl, wget, vim, git, net-tools, dnsutils, iputils-ping)
 
 ## 🎯 Usage
 
@@ -159,7 +160,13 @@ Edit `Vagrantfile`:
 NUM_WORKER_NODES = 3  # Change from 2 to 3
 ```
 
-Update `ansible/inventory/hosts.ini`:
+Then run:
+
+```bash
+vagrant up
+```
+
+Note: You'll also need to update `ansible/inventory/hosts.ini` to add the new worker node:
 
 ```ini
 [workers]
@@ -188,13 +195,23 @@ https://pkgs.k8s.io/core:/stable:/v1.29/deb/
 
 ### Use Different CNI
 
-Edit `ansible/playbooks/master.yml`:
+Edit `ansible/playbooks/master.yml` and replace the Flannel installation task:
 
 ```yaml
-# Replace Flannel with Calico
+# Replace this task:
+- name: Install Flannel CNI
+  become_user: vagrant
+  command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+
+# With Calico:
 - name: Install Calico CNI
+  become_user: vagrant
   command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+  environment:
+    KUBECONFIG: /home/vagrant/.kube/config
 ```
+
+Note: If using Calico, you may need to adjust the pod CIDR in the kubeadm init command (default is 10.244.0.0/16 for Flannel).
 
 ## 📁 Project Structure
 
@@ -215,15 +232,12 @@ Edit `ansible/playbooks/master.yml`:
 
 ## 🔍 How It Works
 
-1. **Vagrant** creates 4 VMs with networking
-2. **Ansible** automatically provisions them:
-   - Prepares all nodes (swap, kernel modules, containerd)
-   - Initializes master node with kubeadm
-   - Installs Flannel CNI
-   - Joins worker nodes to cluster
-   - Sets up tools VM with kubectl
-
-See [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) for detailed explanation.
+1. **Vagrant** creates 4 VMs with private networking (192.168.57.0/24)
+2. **Ansible** automatically provisions them (triggered after all VMs are up):
+   - `common.yml`: Prepares all cluster nodes (disables swap, loads kernel modules, installs containerd + Kubernetes packages)
+   - `master.yml`: Initializes master node with kubeadm, installs Flannel CNI, generates join command
+   - `workers.yml`: Joins worker nodes to the cluster using the join command from master
+   - `tools.yml`: Sets up tools VM with kubectl and copies kubeconfig from master
 
 ## 🧪 Testing
 
@@ -242,8 +256,6 @@ kubectl get pods
 # Clean up
 kubectl delete deployment test
 ```
-
-See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing guide.
 
 ## 🐛 Troubleshooting
 
@@ -319,13 +331,8 @@ MIT License - see LICENSE file for details
 
 ## 📞 Support
 
-- 📖 [Documentation](docs/)
-- 🐛 [Issues](https://github.com/yourusername/yourrepo/issues)
-- 💬 [Discussions](https://github.com/yourusername/yourrepo/discussions)
-
-## ⭐ Star History
-
-If you find this project useful, please consider giving it a star!
+- 🐛 [Issues](https://github.com/chameauu/K8S-IaC/issues)
+- 💬 [Discussions](https://github.com/chameauu/K8S-IaC/discussions)
 
 ---
 
