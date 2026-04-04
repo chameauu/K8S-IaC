@@ -1,0 +1,5 @@
+---
+# kubectl configuration defaults
+kubectl_version: "1.28"
+kubectl_home: "/home/vagrant"
+kubectl_config_dir: "/home/vagrant/.kube"

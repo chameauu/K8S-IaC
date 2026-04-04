@@ -1,0 +1,73 @@
+---
+- name: Install prerequisites
+  apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - apt-transport-https
+    state: present
+    update_cache: yes
+
+- name: Create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Kubernetes APT GPG key
+  apt_key:
+    url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
+    keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    state: present
+
+- name: Add Kubernetes repository
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+    state: present
+    filename: kubernetes
+
+- name: Install kubectl
+  apt:
+    name: kubectl
+    state: present
+    update_cache: yes
+
+- name: Create kubeconfig directory for vagrant user
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: '0700'
+
+- name: Verify kubectl installation
+  command: kubectl version --client
+  register: kubectl_version
+
+- name: Display kubectl version
+  debug:
+    msg: "kubectl installed: {{ kubectl_version.stdout_lines }}"
+
+- name: Check if kubeconfig exists
+  stat:
+    path: /home/vagrant/.kube/config
+  register: kubeconfig_stat
+
+- name: Display kubeconfig status
+  debug:
+    msg: "kubeconfig exists: {{ kubeconfig_stat.stat.exists }}"
+
+- name: Enable kubectl bash completion
+  lineinfile:
+    path: /home/vagrant/.bashrc
+    line: "source <(kubectl completion bash)"
+    create: yes
+    state: present
+
+- name: Enable kubectl zsh completion
+  lineinfile:
+    path: /home/vagrant/.zshrc
+    line: "source <(kubectl completion zsh)"
+    create: yes
+    state: present

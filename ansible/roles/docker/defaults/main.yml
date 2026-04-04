@@ -1,0 +1,11 @@
+---
+# Docker configuration defaults
+docker_registry_url: "nexus-registry.local:8082"
+docker_storage_driver: "overlay2"
+docker_log_driver: "json-file"
+docker_log_max_size: "10m"
+docker_log_max_file: "3"
+
+# Docker insecure registries (private registries without HTTPS)
+docker_insecure_registries:
+  - "nexus-registry.local:8082"

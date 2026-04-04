@@ -1,0 +1,8 @@
+---
+# Playbook for setting up the Tools VM
+- name: Setup Tools VM with Docker and kubectl
+  hosts: tools
+  become: true
+  roles:
+    - docker
+    - kubectl
