@@ -26,10 +26,14 @@ Vagrant.configure("2") do |config|
     config.vm.define "node#{i}" do |node|
       node.vm.hostname = "node#{i}"
       node.vm.network "private_network", ip: IP_NW + "#{NODE_IP_START + i}"
-      # Forward NodePort range (30000-32767) - useful for testing
-      # Uncomment the line below to forward a specific port
-      # node.vm.network "forwarded_port", guest: 32390, host: 32390, host_ip: "127.0.0.1"
       
+      if i == 1
+        (30000..30010).each do |port|
+          node.vm.network "forwarded_port", guest: port, host: port
+        end
+      end
+
+
       node.vm.provider "virtualbox" do |vb|
         vb.memory = 2048
         vb.cpus = 1

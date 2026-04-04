@@ -1,0 +1,3 @@
+---
+# Defaults for cni-flannel role
+flannel_version: "latest"

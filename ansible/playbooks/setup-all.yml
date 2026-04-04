@@ -1,0 +1,19 @@
+---
+# Complete setup playbook - runs all roles in order
+- name: Setup complete Kubernetes cluster
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Run common node setup
+      command: ansible-playbook -i inventory/hosts.ini site.yml
+      register: common_result
+
+    - name: Run master setup
+      command: ansible-playbook -i inventory/hosts.ini master.yml
+      register: master_result
+      when: common_result.rc == 0
+
+    - name: Run worker setup
+      command: ansible-playbook -i inventory/hosts.ini workers.yml
+      register: worker_result
+      when: master_result.rc == 0

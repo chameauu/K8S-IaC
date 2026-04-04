@@ -1,0 +1,4 @@
+---
+# Defaults for common-node role
+k8s_version: "1.28"
+containerd_version: "latest"
