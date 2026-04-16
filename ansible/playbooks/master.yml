@@ -4,5 +4,5 @@
   hosts: master
   become: true
   roles:
-    - kubernetes-master
-    - cni-flannel
+    - ../roles/kubernetes-master
+    - ../roles/cni-flannel

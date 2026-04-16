@@ -1,0 +1,16 @@
+---
+# Nexus Repository Manager configuration
+nexus_version: "3.75.1"
+nexus_port: 8081
+nexus_docker_port: 8082
+nexus_data_dir: /opt/nexus-data
+nexus_admin_password: "admin123"  # Change this in production!
+
+# Docker image
+nexus_image: "sonatype/nexus3:{{ nexus_version }}"
+
+# Container name
+nexus_container_name: "nexus"
+
+# Memory settings
+nexus_java_opts: "-Xms1024m -Xmx1024m -XX:MaxDirectMemorySize=2048m"

@@ -1,8 +1,9 @@
 ---
-# Playbook for setting up the Tools VM
-- name: Setup Tools VM with Docker and kubectl
+- name: Setup Tools VM with Docker, kubectl, Helm, and Nexus
   hosts: tools
   become: true
   roles:
-    - docker
-    - kubectl
+    - ../roles/docker
+    - ../roles/kubectl
+    - ../roles/helm
+    - ../roles/nexus

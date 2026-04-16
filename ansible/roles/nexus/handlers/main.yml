@@ -1,0 +1,6 @@
+---
+- name: restart nexus
+  docker_container:
+    name: "{{ nexus_container_name }}"
+    state: started
+    restart: true

@@ -1,0 +1,118 @@
+---
+- name: Create Nexus data directory
+  file:
+    path: "{{ nexus_data_dir }}"
+    state: directory
+    owner: "200"  # Nexus runs as UID 200 in container
+    group: "200"
+    mode: '0755'
+
+- name: Pull Nexus Docker image
+  docker_image:
+    name: "{{ nexus_image }}"
+    source: pull
+    state: present
+
+- name: Check if Nexus container exists
+  docker_container_info:
+    name: "{{ nexus_container_name }}"
+  register: nexus_container_info
+
+- name: Stop existing Nexus container if running
+  docker_container:
+    name: "{{ nexus_container_name }}"
+    state: stopped
+  when: nexus_container_info.exists
+
+- name: Remove existing Nexus container
+  docker_container:
+    name: "{{ nexus_container_name }}"
+    state: absent
+  when: nexus_container_info.exists
+
+- name: Run Nexus container
+  docker_container:
+    name: "{{ nexus_container_name }}"
+    image: "{{ nexus_image }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ nexus_port }}:8081"
+      - "{{ nexus_docker_port }}:8082"
+    volumes:
+      - "{{ nexus_data_dir }}:/nexus-data"
+    env:
+      INSTALL4J_ADD_VM_PARAMS: "{{ nexus_java_opts }}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+- name: Wait for Nexus to be ready
+  uri:
+    url: "http://localhost:{{ nexus_port }}"
+    status_code: 200
+    timeout: 5
+  register: nexus_health
+  until: nexus_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Check if admin password file exists
+  stat:
+    path: "{{ nexus_data_dir }}/admin.password"
+  register: admin_password_file
+
+- name: Display initial admin password location
+  debug:
+    msg: "Initial admin password can be found at: {{ nexus_data_dir }}/admin.password"
+  when: admin_password_file.stat.exists
+
+- name: Read initial admin password
+  slurp:
+    src: "{{ nexus_data_dir }}/admin.password"
+  register: initial_password
+  when: admin_password_file.stat.exists
+  ignore_errors: true
+
+- name: Display initial admin password
+  debug:
+    msg: "Initial admin password: {{ initial_password.content | b64decode }}"
+  when: 
+    - admin_password_file.stat.exists
+    - initial_password is defined
+    - initial_password.content is defined
+
+- name: Display Nexus access information
+  debug:
+    msg:
+      - "Nexus Repository Manager is now running!"
+      - "Web UI: http://{{ ansible_host }}:{{ nexus_port }}"
+      - "Docker Registry: http://{{ ansible_host }}:{{ nexus_docker_port }}"
+      - "Default username: admin"
+      - "Initial password: Check {{ nexus_data_dir }}/admin.password"
+      - ""
+      - "To access from host machine:"
+      - "  Web UI: http://127.0.0.1:{{ nexus_port }}"
+      - "  Docker Registry: http://127.0.0.1:{{ nexus_docker_port }}"
+
+- name: Create Nexus configuration script
+  template:
+    src: configure-nexus.sh.j2
+    dest: /tmp/configure-nexus.sh
+    mode: '0755'
+
+- name: Display next steps
+  debug:
+    msg:
+      - "Next steps:"
+      - "1. Access Nexus UI and complete setup wizard"
+      - "2. Create Docker hosted repository on port 8082"
+      - "3. Enable Docker Bearer Token Realm"
+      - "4. Configure insecure registry on Docker clients"
+      - ""
+      - "To configure Docker to use Nexus registry:"
+      - "  Add to /etc/docker/daemon.json:"
+      - '  { "insecure-registries": ["{{ ansible_host }}:{{ nexus_docker_port }}"] }'

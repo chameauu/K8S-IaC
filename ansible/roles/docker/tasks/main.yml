@@ -8,7 +8,7 @@
       - lsb-release
       - apt-transport-https
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Create keyrings directory
   file:
@@ -37,14 +37,14 @@
       - docker-buildx-plugin
       - docker-compose-plugin
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Ensure Docker is started and enabled
   systemd:
     name: docker
     state: started
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true
 
 - name: Create docker group
   group:
@@ -55,7 +55,7 @@
   user:
     name: vagrant
     groups: docker
-    append: yes
+    append: true
 
 - name: Create Docker daemon configuration directory
   file:
@@ -95,6 +95,7 @@
 - name: Verify Docker installation
   command: docker --version
   register: docker_version
+  changed_when: false
 
 - name: Display Docker version
   debug:
@@ -104,6 +105,7 @@
   command: docker ps
   register: docker_ps
   become: true
+  changed_when: false
 
 - name: Display Docker daemon status
   debug:

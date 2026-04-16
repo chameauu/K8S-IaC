@@ -7,7 +7,7 @@
       - gnupg
       - apt-transport-https
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Create keyrings directory
   file:
@@ -31,7 +31,7 @@
   apt:
     name: kubectl
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Create kubeconfig directory for vagrant user
   file:
@@ -44,6 +44,7 @@
 - name: Verify kubectl installation
   command: kubectl version --client
   register: kubectl_version
+  changed_when: false
 
 - name: Display kubectl version
   debug:
@@ -62,12 +63,14 @@
   lineinfile:
     path: /home/vagrant/.bashrc
     line: "source <(kubectl completion bash)"
-    create: yes
+    create: true
     state: present
+    mode: '0644'
 
 - name: Enable kubectl zsh completion
   lineinfile:
     path: /home/vagrant/.zshrc
     line: "source <(kubectl completion zsh)"
-    create: yes
+    create: true
     state: present
+    mode: '0644'

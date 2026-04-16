@@ -1,0 +1,79 @@
+#!/bin/bash
+# Nexus Configuration Helper Script
+# This script helps configure Nexus Repository Manager
+
+NEXUS_URL="http://{{ ansible_host }}:{{ nexus_port }}"
+NEXUS_USER="admin"
+
+echo "=========================================="
+echo "Nexus Repository Manager Configuration"
+echo "=========================================="
+echo ""
+echo "Nexus URL: $NEXUS_URL"
+echo ""
+
+# Check if admin.password file exists
+if [ -f "{{ nexus_data_dir }}/admin.password" ]; then
+    INITIAL_PASSWORD=$(cat {{ nexus_data_dir }}/admin.password)
+    echo "Initial admin password: $INITIAL_PASSWORD"
+    echo ""
+    echo "Please login to Nexus UI and complete the setup wizard:"
+    echo "1. Navigate to: $NEXUS_URL"
+    echo "2. Click 'Sign In' (top right)"
+    echo "3. Username: admin"
+    echo "4. Password: $INITIAL_PASSWORD"
+    echo "5. Follow the setup wizard to change password"
+    echo ""
+else
+    echo "Admin password file not found. Nexus may already be configured."
+    echo "If you forgot the password, you may need to reset it."
+    echo ""
+fi
+
+echo "=========================================="
+echo "Docker Registry Configuration"
+echo "=========================================="
+echo ""
+echo "To create a Docker hosted repository:"
+echo "1. Login to Nexus UI"
+echo "2. Go to: Settings (gear icon) → Repository → Repositories"
+echo "3. Click 'Create repository'"
+echo "4. Select 'docker (hosted)'"
+echo "5. Configure:"
+echo "   - Name: docker-hosted"
+echo "   - HTTP: 8082 (already exposed)"
+echo "   - Enable Docker V1 API: Check"
+echo "   - Deployment policy: Allow redeploy"
+echo "6. Click 'Create repository'"
+echo ""
+echo "To enable Docker Bearer Token Realm:"
+echo "1. Go to: Settings → Security → Realms"
+echo "2. Add 'Docker Bearer Token Realm' to Active"
+echo "3. Click 'Save'"
+echo ""
+echo "=========================================="
+echo "Docker Client Configuration"
+echo "=========================================="
+echo ""
+echo "On machines that will push/pull images:"
+echo ""
+echo "1. Configure insecure registry:"
+echo "   sudo tee /etc/docker/daemon.json <<EOF"
+echo '   {'
+echo '     "insecure-registries": ["{{ ansible_host }}:{{ nexus_docker_port }}"]'
+echo '   }'
+echo '   EOF'
+echo ""
+echo "2. Restart Docker:"
+echo "   sudo systemctl restart docker"
+echo ""
+echo "3. Login to Nexus registry:"
+echo "   docker login {{ ansible_host }}:{{ nexus_docker_port }}"
+echo "   Username: admin"
+echo "   Password: <your-nexus-password>"
+echo ""
+echo "4. Test by pushing an image:"
+echo "   docker tag myimage:latest {{ ansible_host }}:{{ nexus_docker_port }}/myimage:latest"
+echo "   docker push {{ ansible_host }}:{{ nexus_docker_port }}/myimage:latest"
+echo ""
+echo "=========================================="

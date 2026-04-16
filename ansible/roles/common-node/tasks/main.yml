@@ -40,7 +40,7 @@
       - apt-transport-https
       - gpg
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Create keyrings directory
   file:
@@ -68,7 +68,7 @@
   apt:
     name: containerd.io
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Create containerd directory
   file:
@@ -83,13 +83,7 @@
     path: /etc/containerd/config.toml
     regexp: 'SystemdCgroup = false'
     replace: 'SystemdCgroup = true'
-
-- name: Restart containerd
-  systemd:
-    name: containerd
-    state: restarted
-    enabled: yes
-    daemon_reload: yes
+  notify: restart containerd
 
 - name: Wait for containerd to be ready
   wait_for:
@@ -113,8 +107,9 @@
     name:
       - kubelet
       - kubectl
+      - kubeadm
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Hold Kubernetes packages
   dpkg_selections:
@@ -123,3 +118,4 @@
   loop:
     - kubelet
     - kubectl
+    - kubeadm

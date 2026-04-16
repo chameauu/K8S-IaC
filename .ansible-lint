@@ -1,0 +1,15 @@
+# ansible-lint configuration
+# Specify the roles path
+roles_path:
+  - ./ansible/roles
+
+# Paths to exclude
+exclude_paths:
+  - .git
+  - __pycache__
+  - "*.pyc"
+  - .vagrant
+
+# Rules to skip
+skip_list:
+  - internal-error

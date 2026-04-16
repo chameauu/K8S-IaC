@@ -4,4 +4,4 @@
   hosts: workers
   become: true
   roles:
-    - kubernetes-worker
+    - ../roles/kubernetes-worker

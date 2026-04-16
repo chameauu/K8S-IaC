@@ -1,0 +1,115 @@
+---
+- name: Check if Helm is already installed
+  command: helm version --short
+  register: helm_installed
+  failed_when: false
+  changed_when: false
+
+- name: Display current Helm version if installed
+  debug:
+    msg: "Helm is already installed: {{ helm_installed.stdout }}"
+  when: helm_installed.rc == 0
+
+- name: Install Helm if not present
+  when: helm_installed.rc != 0
+  block:
+    - name: Gather system architecture
+      set_fact:
+        system_arch: "{{ helm_arch_map[ansible_architecture] | default('amd64') }}"
+
+    - name: Get latest Helm version if not specified
+      uri:
+        url: https://api.github.com/repos/helm/helm/releases/latest
+        return_content: yes
+      register: helm_latest_release
+      when: helm_version == ""
+
+    - name: Set Helm version to latest
+      set_fact:
+        helm_version_to_install: "{{ helm_latest_release.json.tag_name }}"
+      when: helm_version == ""
+
+    - name: Set Helm version to specified
+      set_fact:
+        helm_version_to_install: "{{ helm_version }}"
+      when: helm_version != ""
+
+    - name: Construct Helm download URL
+      set_fact:
+        helm_download_url: "https://get.helm.sh/helm-{{ helm_version_to_install }}-linux-{{ system_arch }}.tar.gz"
+
+    - name: Display Helm download information
+      debug:
+        msg:
+          - "Installing Helm {{ helm_version_to_install }}"
+          - "Architecture: {{ system_arch }}"
+          - "Download URL: {{ helm_download_url }}"
+
+    - name: Download Helm tarball
+      get_url:
+        url: "{{ helm_download_url }}"
+        dest: "{{ helm_temp_dir }}/helm.tar.gz"
+        mode: '0644'
+        timeout: 60
+      register: helm_download
+
+    - name: Create temporary extraction directory
+      file:
+        path: "{{ helm_temp_dir }}/helm-extract"
+        state: directory
+        mode: '0755'
+
+    - name: Extract Helm tarball
+      unarchive:
+        src: "{{ helm_temp_dir }}/helm.tar.gz"
+        dest: "{{ helm_temp_dir }}/helm-extract"
+        remote_src: yes
+        creates: "{{ helm_temp_dir }}/helm-extract/linux-{{ system_arch }}/helm"
+
+    - name: Install Helm binary
+      copy:
+        src: "{{ helm_temp_dir }}/helm-extract/linux-{{ system_arch }}/helm"
+        dest: "{{ helm_install_dir }}/helm"
+        mode: '0755'
+        remote_src: yes
+      become: yes
+
+    - name: Clean up temporary files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ helm_temp_dir }}/helm.tar.gz"
+        - "{{ helm_temp_dir }}/helm-extract"
+
+    - name: Verify Helm installation
+      command: helm version --short
+      register: helm_verify
+      changed_when: false
+
+    - name: Display installed Helm version
+      debug:
+        msg: "Successfully installed Helm: {{ helm_verify.stdout }}"
+
+- name: Add common Helm repositories
+  command: "helm repo add {{ item.name }} {{ item.url }}"
+  loop:
+    - { name: "stable", url: "https://charts.helm.sh/stable" }
+    - { name: "bitnami", url: "https://charts.bitnami.com/bitnami" }
+    - { name: "jenkins", url: "https://charts.jenkins.io" }
+  register: helm_repo_add
+  failed_when: false
+  changed_when: "'has been added' in helm_repo_add.stdout"
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+
+- name: Display Helm repository list
+  command: helm repo list
+  register: helm_repos
+  changed_when: false
+
+- name: Show configured Helm repositories
+  debug:
+    msg: "{{ helm_repos.stdout_lines }}"
