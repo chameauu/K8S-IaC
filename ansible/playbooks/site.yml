@@ -9,6 +9,9 @@
 # Setup tools VM with kubectl, Helm, Docker
 - import_playbook: tools.yml
 
+# Deploy Gitea Git Server on Tools VM (optional - comment out if not needed)
+# - import_playbook: gitea.yml
+
 # Configure Nexus as Docker Registry (optional - comment out if not needed)
 # - import_playbook: nexus-docker-registry.yml
 

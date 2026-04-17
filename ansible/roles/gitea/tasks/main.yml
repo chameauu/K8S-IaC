@@ -1,0 +1,118 @@
+---
+# tasks file for gitea
+# Deploys Gitea Git server on tools VM using Docker
+
+- name: Check if Docker is running
+  systemd:
+    name: docker
+    state: started
+  become: yes
+
+- name: Create Gitea data volume
+  docker_volume:
+    name: "{{ gitea_data_volume }}"
+    state: present
+  become: yes
+
+- name: Pull Gitea Docker image
+  docker_image:
+    name: "{{ gitea_image }}"
+    source: pull
+  become: yes
+
+- name: Check if Gitea container exists
+  command: docker ps -a -q -f name={{ gitea_container_name }}
+  register: gitea_container_check
+  changed_when: false
+  become: yes
+
+- name: Remove existing Gitea container if exists
+  docker_container:
+    name: "{{ gitea_container_name }}"
+    state: absent
+  when: gitea_container_check.stdout != ""
+  become: yes
+
+- name: Start Gitea container
+  docker_container:
+    name: "{{ gitea_container_name }}"
+    image: "{{ gitea_image }}"
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ gitea_http_port }}:3000"
+      - "{{ gitea_ssh_port }}:22"
+    volumes:
+      - "{{ gitea_data_volume }}:/data"
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    env:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      GITEA__database__DB_TYPE: "{{ gitea_db_type }}"
+      GITEA__database__PATH: "/data/gitea/gitea.db"
+      GITEA__server__DOMAIN: "{{ gitea_domain }}"
+      GITEA__server__ROOT_URL: "{{ gitea_root_url }}"
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__server__SSH_DOMAIN: "{{ gitea_ssh_domain }}"
+      GITEA__server__SSH_PORT: "{{ gitea_ssh_port | string }}"
+      GITEA__server__DISABLE_SSH: "false"
+      GITEA__service__DISABLE_REGISTRATION: "false"
+      GITEA__service__REQUIRE_SIGNIN_VIEW: "false"
+  become: yes
+  register: gitea_container
+
+- name: Wait for Gitea to be ready
+  uri:
+    url: "http://localhost:{{ gitea_http_port }}"
+    status_code: 200
+  register: gitea_status
+  until: gitea_status.status == 200
+  retries: 30
+  delay: 5
+  ignore_errors: yes
+
+- name: Display Gitea status
+  debug:
+    msg: "Gitea is {{ 'ready' if gitea_status.status == 200 else 'not ready yet (may need more time)' }}"
+
+- name: Check if Gitea is accessible
+  uri:
+    url: "http://localhost:{{ gitea_http_port }}"
+    method: GET
+    status_code: 200
+  register: gitea_check
+  failed_when: false
+
+- name: Display Gitea access information
+  debug:
+    msg:
+      - "=========================================="
+      - "Gitea Git Server Deployed!"
+      - "=========================================="
+      - ""
+      - "Web UI: http://{{ gitea_domain }}:{{ gitea_http_port }}"
+      - "SSH: ssh://git@{{ gitea_ssh_domain }}:{{ gitea_ssh_port }}"
+      - ""
+      - "First-time setup:"
+      - "  1. Open http://{{ gitea_domain }}:{{ gitea_http_port }}"
+      - "  2. Click 'Register' to create first user"
+      - "  3. First user becomes admin automatically"
+      - ""
+      - "Recommended admin credentials:"
+      - "  Username: {{ gitea_admin_username }}"
+      - "  Password: {{ gitea_admin_password }}"
+      - "  Email: {{ gitea_admin_email }}"
+      - ""
+      - "Container: {{ gitea_container_name }}"
+      - "Volume: {{ gitea_data_volume }}"
+      - "Status: {{ 'Running' if gitea_check.status == 200 else 'Starting (wait 1-2 minutes)' }}"
+      - ""
+      - "Next steps:"
+      - "  1. Create admin user in Gitea UI"
+      - "  2. Create repository: hello-world-k8s"
+      - "  3. Push sample-app code"
+      - "  4. Configure Jenkins webhook"
+      - ""
+      - "Documentation: sample-app/GIT_WEBHOOK_SETUP.md"
+      - "=========================================="
