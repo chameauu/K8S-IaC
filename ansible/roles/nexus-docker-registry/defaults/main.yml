@@ -1,0 +1,36 @@
+---
+# defaults file for nexus-docker-registry
+
+# Nexus connection settings
+nexus_url: "http://localhost:8081"
+nexus_admin_user: "admin"
+nexus_admin_password: "admin123"
+
+# Docker registry ports
+nexus_docker_hosted_port: 8082
+nexus_docker_proxy_port: 8083
+nexus_docker_group_port: 8084
+
+# Repository names
+nexus_docker_hosted_repo: "docker-hosted"
+nexus_docker_proxy_repo: "docker-proxy"
+nexus_docker_group_repo: "docker-group"
+
+# Blob store names
+nexus_docker_hosted_blob: "docker-hosted"
+nexus_docker_proxy_blob: "docker-proxy"
+nexus_docker_group_blob: "docker-group"
+
+# Docker Hub proxy settings
+docker_hub_url: "https://registry-1.docker.io"
+docker_hub_index: "REGISTRY"
+
+# Deployment policy for hosted repository
+# Options: ALLOW, ALLOW_ONCE, DENY
+nexus_deployment_policy: "ALLOW"
+
+# Enable anonymous access for Docker pulls
+nexus_anonymous_access: true
+
+# Wait time for Nexus to be ready (seconds)
+nexus_wait_timeout: 300

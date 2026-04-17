@@ -61,10 +61,12 @@ That's it! You now have a fully functional Kubernetes cluster.
 - ✅ Kubernetes 1.28
 - ✅ Flannel CNI for networking
 - ✅ containerd runtime
-- ✅ Separate management VM
+- ✅ Separate management VM with kubectl, Helm, Docker
+- ✅ Jenkins on Kubernetes (automated deployment)
 - ✅ Idempotent Ansible playbooks
 - ✅ Port forwarding for API access
 - ✅ Ready for development and testing
+- ✅ Infrastructure as Code approach
 
 ## 📦 What Gets Installed
 
@@ -83,7 +85,10 @@ That's it! You now have a fully functional Kubernetes cluster.
 - etcd
 
 ### On Tools VM
-- kubectl only
+- kubectl configured with cluster access
+- Helm 4.x (Kubernetes package manager)
+- Docker (for Nexus and other containers)
+- Jenkins on Kubernetes (optional)
 - Cluster admin kubeconfig
 - Useful utilities (curl, vim, git, etc.)
 
@@ -122,6 +127,19 @@ kubectl expose deployment nginx --port=80 --type=NodePort
 # Get the NodePort
 kubectl get svc nginx
 ```
+
+### Deploy Jenkins on Kubernetes
+
+```bash
+# Automated deployment with Ansible
+ansible-playbook ansible/playbooks/jenkins.yml
+
+# Access Jenkins at: http://10.0.2.10:30080
+# Username: admin
+# Password: See docs/ANSIBLE_JENKINS_DEPLOYMENT.md
+```
+
+See [docs/ANSIBLE_JENKINS_DEPLOYMENT.md](docs/ANSIBLE_JENKINS_DEPLOYMENT.md) for complete Jenkins setup guide.
 
 ### Access from Host Machine
 
@@ -201,16 +219,26 @@ Edit `ansible/playbooks/master.yml`:
 ```
 .
 ├── Vagrantfile                    # VM definitions
-└── ansible/
-    ├── ansible.cfg                # Ansible configuration
-    ├── inventory/
-    │   └── hosts.ini              # Host inventory
-    └── playbooks/
-        ├── site.yml               # Main playbook
-        ├── common.yml             # Node preparation
-        ├── master.yml             # Master initialization
-        ├── workers.yml            # Worker join
-        └── tools.yml              # Tools VM setup
+├── k8s/
+│   └── jenkins-simple.yaml        # Jenkins Kubernetes manifest
+├── ansible/
+│   ├── ansible.cfg                # Ansible configuration
+│   ├── inventory/
+│   │   └── hosts.ini              # Host inventory
+│   ├── playbooks/
+│   │   ├── site.yml               # Main playbook (all-in-one)
+│   │   ├── common.yml             # Node preparation
+│   │   ├── master.yml             # Master initialization
+│   │   ├── workers.yml            # Worker join
+│   │   ├── tools.yml              # Tools VM setup
+│   │   └── jenkins.yml            # Jenkins deployment
+│   └── roles/
+│       ├── helm/                  # Helm installation
+│       └── jenkins-k8s/           # Jenkins deployment
+└── docs/
+    ├── ANSIBLE_JENKINS_DEPLOYMENT.md  # Jenkins automation guide
+    ├── JENKINS_SIMPLE_DEPLOYMENT.md   # Manual Jenkins guide
+    └── ...
 ```
 
 ## 🔍 How It Works
@@ -221,7 +249,8 @@ Edit `ansible/playbooks/master.yml`:
    - Initializes master node with kubeadm
    - Installs Flannel CNI
    - Joins worker nodes to cluster
-   - Sets up tools VM with kubectl
+   - Sets up tools VM with kubectl, Helm, Docker
+   - Optionally deploys Jenkins on Kubernetes
 
 See [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) for detailed explanation.
 

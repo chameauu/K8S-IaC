@@ -5,3 +5,12 @@
   become: true
   roles:
     - ../roles/common-node
+
+# Setup tools VM with kubectl, Helm, Docker
+- import_playbook: tools.yml
+
+# Configure Nexus as Docker Registry (optional - comment out if not needed)
+# - import_playbook: nexus-docker-registry.yml
+
+# Deploy Jenkins on Kubernetes (optional - comment out if not needed)
+# - import_playbook: jenkins.yml

@@ -1,0 +1,234 @@
+---
+# tasks file for nexus-docker-registry
+# Configures Nexus as Docker registry using REST API
+
+- name: Wait for Nexus to be ready
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/status"
+    method: GET
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: nexus_status
+  until: nexus_status.status == 200
+  retries: "{{ (nexus_wait_timeout / 10) | int }}"
+  delay: 10
+  ignore_errors: yes
+
+- name: Display Nexus status
+  debug:
+    msg: "Nexus is {{ 'ready' if nexus_status.status == 200 else 'not ready' }}"
+
+- name: Fail if Nexus is not ready
+  fail:
+    msg: "Nexus is not ready after {{ nexus_wait_timeout }} seconds. Check 'docker logs nexus'"
+  when: nexus_status.status != 200
+
+- name: Enable Docker Bearer Token Realm
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/realms/active"
+    method: PUT
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      - "NexusAuthenticatingRealm"
+      - "NexusAuthorizingRealm"
+      - "DockerToken"
+    status_code: [204, 200]
+  register: realm_result
+
+- name: Display realm configuration result
+  debug:
+    msg: "Docker Bearer Token Realm enabled"
+  when: realm_result.status in [200, 204]
+
+- name: Create blob store for docker-hosted
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/blobstores/file"
+    method: POST
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ nexus_docker_hosted_blob }}"
+      path: "/nexus-data/blobs/{{ nexus_docker_hosted_blob }}"
+      softQuota: null
+    status_code: [201, 204, 400]
+  register: blob_hosted_result
+  failed_when: 
+    - blob_hosted_result.status not in [201, 204, 400]
+    - "'already exists' not in (blob_hosted_result.content | default(''))"
+
+- name: Create blob store for docker-proxy
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/blobstores/file"
+    method: POST
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ nexus_docker_proxy_blob }}"
+      path: "/nexus-data/blobs/{{ nexus_docker_proxy_blob }}"
+      softQuota: null
+    status_code: [201, 204, 400]
+  register: blob_proxy_result
+  failed_when: 
+    - blob_proxy_result.status not in [201, 204, 400]
+    - "'already exists' not in (blob_proxy_result.content | default(''))"
+
+- name: Create blob store for docker-group
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/blobstores/file"
+    method: POST
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ nexus_docker_group_blob }}"
+      path: "/nexus-data/blobs/{{ nexus_docker_group_blob }}"
+      softQuota: null
+    status_code: [201, 204, 400]
+  register: blob_group_result
+  failed_when: 
+    - blob_group_result.status not in [201, 204, 400]
+    - "'already exists' not in (blob_group_result.content | default(''))"
+
+- name: Create Docker hosted repository
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/repositories/docker/hosted"
+    method: POST
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ nexus_docker_hosted_repo }}"
+      online: true
+      storage:
+        blobStoreName: "{{ nexus_docker_hosted_blob }}"
+        strictContentTypeValidation: true
+        writePolicy: "{{ nexus_deployment_policy }}"
+      docker:
+        v1Enabled: false
+        forceBasicAuth: false
+        httpPort: "{{ nexus_docker_hosted_port }}"
+    status_code: [201, 400]
+  register: repo_hosted_result
+  failed_when: 
+    - repo_hosted_result.status not in [201, 400]
+    - "'already exists' not in (repo_hosted_result.content | default(''))"
+
+- name: Create Docker proxy repository
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/repositories/docker/proxy"
+    method: POST
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ nexus_docker_proxy_repo }}"
+      online: true
+      storage:
+        blobStoreName: "{{ nexus_docker_proxy_blob }}"
+        strictContentTypeValidation: true
+      proxy:
+        remoteUrl: "{{ docker_hub_url }}"
+        contentMaxAge: 1440
+        metadataMaxAge: 1440
+      negativeCache:
+        enabled: true
+        timeToLive: 1440
+      httpClient:
+        blocked: false
+        autoBlock: true
+      docker:
+        v1Enabled: false
+        forceBasicAuth: false
+        httpPort: "{{ nexus_docker_proxy_port }}"
+      dockerProxy:
+        indexType: "{{ docker_hub_index }}"
+    status_code: [201, 400]
+  register: repo_proxy_result
+  failed_when: 
+    - repo_proxy_result.status not in [201, 400]
+    - "'already exists' not in (repo_proxy_result.content | default(''))"
+
+- name: Create Docker group repository
+  uri:
+    url: "{{ nexus_url }}/service/rest/v1/repositories/docker/group"
+    method: POST
+    user: "{{ nexus_admin_user }}"
+    password: "{{ nexus_admin_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ nexus_docker_group_repo }}"
+      online: true
+      storage:
+        blobStoreName: "{{ nexus_docker_group_blob }}"
+        strictContentTypeValidation: true
+      group:
+        memberNames:
+          - "{{ nexus_docker_hosted_repo }}"
+          - "{{ nexus_docker_proxy_repo }}"
+      docker:
+        v1Enabled: false
+        forceBasicAuth: false
+        httpPort: "{{ nexus_docker_group_port }}"
+    status_code: [201, 400]
+  register: repo_group_result
+  failed_when: 
+    - repo_group_result.status not in [201, 400]
+    - "'already exists' not in (repo_group_result.content | default(''))"
+
+- name: Configure Docker daemon for insecure registry
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "insecure-registries": [
+          "10.0.2.30:{{ nexus_docker_hosted_port }}",
+          "10.0.2.30:{{ nexus_docker_proxy_port }}",
+          "10.0.2.30:{{ nexus_docker_group_port }}",
+          "localhost:{{ nexus_docker_hosted_port }}"
+        ]
+      }
+    mode: '0644'
+  become: yes
+  notify: restart docker
+
+- name: Display configuration summary
+  debug:
+    msg:
+      - "=========================================="
+      - "Nexus Docker Registry Configuration Complete!"
+      - "=========================================="
+      - ""
+      - "Web UI: {{ nexus_url }}"
+      - "Username: {{ nexus_admin_user }}"
+      - "Password: {{ nexus_admin_password }}"
+      - ""
+      - "Docker Registries:"
+      - "  Hosted (push custom images): 10.0.2.30:{{ nexus_docker_hosted_port }}"
+      - "  Proxy (cache Docker Hub):    10.0.2.30:{{ nexus_docker_proxy_port }}"
+      - "  Group (combined):             10.0.2.30:{{ nexus_docker_group_port }}"
+      - ""
+      - "Test commands:"
+      - "  docker login 10.0.2.30:{{ nexus_docker_hosted_port }}"
+      - "  docker tag hello-world 10.0.2.30:{{ nexus_docker_hosted_port }}/hello-world:latest"
+      - "  docker push 10.0.2.30:{{ nexus_docker_hosted_port }}/hello-world:latest"
+      - ""
+      - "Next steps:"
+      - "  1. Run: ansible-playbook ansible/playbooks/configure-k8s-nodes-nexus.yml"
+      - "  2. Create Kubernetes secret for image pulls"
+      - "  3. Configure Jenkins credentials"
+      - ""
+      - "Documentation: docs/NEXUS_DOCKER_REGISTRY_SETUP.md"
+      - "=========================================="

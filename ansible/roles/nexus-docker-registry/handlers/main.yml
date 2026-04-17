@@ -1,0 +1,8 @@
+---
+# handlers file for nexus-docker-registry
+
+- name: restart docker
+  systemd:
+    name: docker
+    state: restarted
+  become: yes
