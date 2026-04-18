@@ -1,5 +1,5 @@
 ---
-- name: Setup Tools VM with Docker, kubectl, Helm, and Nexus
+- name: Setup Tools VM with Docker, kubectl, Helm, Nexus, Nexus Registry, and Gitea
   hosts: tools
   become: true
   roles:
@@ -7,3 +7,5 @@
     - ../roles/kubectl
     - ../roles/helm
     - ../roles/nexus
+    - ../roles/nexus-docker-registry
+    - ../roles/gitea

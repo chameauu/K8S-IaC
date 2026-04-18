@@ -1,19 +1,19 @@
 ---
-# Main playbook for setting up all nodes
+# Main playbook for setting up complete Kubernetes cluster
 - name: Common node setup for all Kubernetes nodes
   hosts: k8s_cluster
   become: true
   roles:
     - ../roles/common-node
 
-# Setup tools VM with kubectl, Helm, Docker
+
+
+# Initialize Kubernetes master node
+- import_playbook: master.yml
+
+# Join worker nodes to cluster
+- import_playbook: workers.yml
+
+
+# Setup tools VM with kubectl, Helm, Docker, Nexus, Gitea
 - import_playbook: tools.yml
-
-# Deploy Gitea Git Server on Tools VM (optional - comment out if not needed)
-# - import_playbook: gitea.yml
-
-# Configure Nexus as Docker Registry (optional - comment out if not needed)
-# - import_playbook: nexus-docker-registry.yml
-
-# Deploy Jenkins on Kubernetes (optional - comment out if not needed)
-# - import_playbook: jenkins.yml

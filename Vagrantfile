@@ -19,6 +19,8 @@ Vagrant.configure("2") do |config|
   config.vm.define "master" do |master|
     master.vm.hostname = "master"
     master.vm.network "forwarded_port", guest: 6443, host: 6443, host_ip: "127.0.0.1"
+    # Hello World app NodePort forwarding
+    master.vm.network "forwarded_port", guest: 30081, host: 30081, host_ip: "127.0.0.1"
     
     master.vm.provider "virtualbox" do |vb|
       vb.memory = 2048
@@ -63,6 +65,11 @@ EOF
         end
       end
 
+      if i == 2
+        # Jenkins NodePort forwarding (Jenkins pod runs on node2)
+        node.vm.network "forwarded_port", guest: 30080, host: 30080, host_ip: "127.0.0.1"
+      end
+
       node.vm.provider "virtualbox" do |vb|
         vb.memory = 2048
         vb.cpus = 1
@@ -98,9 +105,15 @@ EOF
   # Tools VM
   config.vm.define "tools" do |tools|
     tools.vm.hostname = "tools"
+    # Gitea port forwarding
+    tools.vm.network "forwarded_port", guest: 3000, host: 3000, host_ip: "127.0.0.1"
+    # Nexus web UI port forwarding
+    tools.vm.network "forwarded_port", guest: 8081, host: 8081, host_ip: "127.0.0.1"
+    # Nexus Docker registry port forwarding
+    tools.vm.network "forwarded_port", guest: 8082, host: 8082, host_ip: "127.0.0.1"
     
     tools.vm.provider "virtualbox" do |vb|
-      vb.memory = 1024
+      vb.memory = 2024
       vb.cpus = 1
       vb.name = "k8s-tools"
       # NIC1 stays as default NAT for Vagrant SSH
