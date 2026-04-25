@@ -18,3 +18,9 @@ nfs_exports:
 nfs_server_packages:
   - nfs-kernel-server
   - nfs-common
+
+# Kubernetes integration
+create_k8s_resources: true  # Set to false to skip K8s PV/PVC creation
+nfs_server_ip: "10.0.2.30"
+nfs_jenkins_storage_size: "20Gi"
+nfs_jenkins_export: "/data/nfs/jenkins"

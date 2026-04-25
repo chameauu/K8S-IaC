@@ -34,3 +34,7 @@ nexus_anonymous_access: true
 
 # Wait time for Nexus to be ready (seconds)
 nexus_wait_timeout: 300
+
+# Kubernetes nodes configuration
+nexus_registry_host: "10.0.2.30"
+configure_k8s_nodes: true  # Set to false to skip k8s node configuration

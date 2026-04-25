@@ -1,0 +1,87 @@
+---
+# Create Kubernetes PersistentVolume and PersistentVolumeClaim for NFS
+
+- name: Create Jenkins namespace
+  shell: kubectl create namespace jenkins --dry-run=client -o yaml | kubectl apply -f -
+  delegate_to: master
+  changed_when: false
+  tags:
+    - k8s-resources
+
+- name: Create Jenkins NFS PersistentVolume
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: jenkins-nfs-pv
+      labels:
+        type: nfs
+        app: jenkins
+    spec:
+      capacity:
+        storage: {{ nfs_jenkins_storage_size }}
+      volumeMode: Filesystem
+      accessModes:
+        - ReadWriteMany
+      persistentVolumeReclaimPolicy: Retain
+      storageClassName: nfs
+      mountOptions:
+        - hard
+        - nfsvers=4.1
+        - timeo=600
+        - retrans=2
+      nfs:
+        path: {{ nfs_jenkins_export }}
+        server: {{ nfs_server_ip }}
+    EOF
+  delegate_to: master
+  register: pv_result
+  changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
+  tags:
+    - k8s-resources
+
+- name: Create Jenkins NFS PersistentVolumeClaim
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: jenkins-nfs-pvc
+      namespace: jenkins
+    spec:
+      accessModes:
+        - ReadWriteMany
+      storageClassName: nfs
+      resources:
+        requests:
+          storage: {{ nfs_jenkins_storage_size }}
+      selector:
+        matchLabels:
+          app: jenkins
+    EOF
+  delegate_to: master
+  register: pvc_result
+  changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
+  tags:
+    - k8s-resources
+
+- name: Wait for PVC to be bound
+  shell: kubectl get pvc jenkins-nfs-pvc -n jenkins -o jsonpath='{.status.phase}'
+  delegate_to: master
+  register: pvc_status
+  until: pvc_status.stdout == "Bound"
+  retries: 30
+  delay: 2
+  changed_when: false
+  tags:
+    - k8s-resources
+
+- name: Display Kubernetes resources status
+  debug:
+    msg:
+      - "Kubernetes NFS resources created:"
+      - "  PersistentVolume: jenkins-nfs-pv"
+      - "  PersistentVolumeClaim: jenkins-nfs-pvc ({{ pvc_status.stdout }})"
+  tags:
+    - k8s-resources

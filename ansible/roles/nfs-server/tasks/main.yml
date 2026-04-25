@@ -64,3 +64,19 @@
     port: 2049
     timeout: 10
   become: yes
+
+- name: Check if kubectl is available
+  command: kubectl version --client
+  register: kubectl_available
+  changed_when: false
+  failed_when: false
+  tags:
+    - always
+
+- name: Create Kubernetes resources for NFS
+  include_tasks: create-k8s-resources.yml
+  when:
+    - create_k8s_resources | bool
+    - kubectl_available.rc == 0
+  tags:
+    - k8s-resources

@@ -1,0 +1,99 @@
+---
+# Configure Kubernetes nodes to use Nexus Docker registry
+# This task file is delegated to k8s_cluster hosts
+
+- name: Create containerd certs directory for Nexus hosted registry
+  file:
+    path: "/etc/containerd/certs.d/{{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}"
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Configure Nexus hosted registry as insecure
+  copy:
+    dest: "/etc/containerd/certs.d/{{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}/hosts.toml"
+    content: |
+      server = "http://{{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}"
+      
+      [host."http://{{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}"]
+        capabilities = ["pull", "resolve", "push"]
+        skip_verify = true
+    mode: '0644'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Create containerd certs directory for Nexus proxy registry
+  file:
+    path: "/etc/containerd/certs.d/{{ nexus_registry_host }}:{{ nexus_docker_proxy_port }}"
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Configure Nexus proxy registry as insecure
+  copy:
+    dest: "/etc/containerd/certs.d/{{ nexus_registry_host }}:{{ nexus_docker_proxy_port }}/hosts.toml"
+    content: |
+      server = "http://{{ nexus_registry_host }}:{{ nexus_docker_proxy_port }}"
+      
+      [host."http://{{ nexus_registry_host }}:{{ nexus_docker_proxy_port }}"]
+        capabilities = ["pull", "resolve"]
+        skip_verify = true
+    mode: '0644'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Create containerd certs directory for Nexus group registry
+  file:
+    path: "/etc/containerd/certs.d/{{ nexus_registry_host }}:{{ nexus_docker_group_port }}"
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Configure Nexus group registry as insecure
+  copy:
+    dest: "/etc/containerd/certs.d/{{ nexus_registry_host }}:{{ nexus_docker_group_port }}/hosts.toml"
+    content: |
+      server = "http://{{ nexus_registry_host }}:{{ nexus_docker_group_port }}"
+      
+      [host."http://{{ nexus_registry_host }}:{{ nexus_docker_group_port }}"]
+        capabilities = ["pull", "resolve", "push"]
+        skip_verify = true
+    mode: '0644'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Restart containerd on all k8s nodes
+  systemd:
+    name: containerd
+    state: restarted
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+
+- name: Wait for containerd to be ready
+  wait_for:
+    timeout: 10
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+
+- name: Verify containerd is running on all k8s nodes
+  systemd:
+    name: containerd
+    state: started
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_cluster'] }}"
+  become: yes
+  register: containerd_status
+
+- name: Display k8s nodes configuration status
+  debug:
+    msg: "Containerd configured for Nexus registry on all Kubernetes nodes"

@@ -204,6 +204,15 @@
   become: yes
   notify: restart docker
 
+- name: Configure Kubernetes nodes for Nexus registry
+  include_tasks: configure-k8s-nodes.yml
+  when: 
+    - configure_k8s_nodes | bool
+    - groups['k8s_cluster'] is defined
+    - groups['k8s_cluster'] | length > 0
+  tags:
+    - k8s-config
+
 - name: Display configuration summary
   debug:
     msg:
@@ -216,19 +225,20 @@
       - "Password: {{ nexus_admin_password }}"
       - ""
       - "Docker Registries:"
-      - "  Hosted (push custom images): 10.0.2.30:{{ nexus_docker_hosted_port }}"
-      - "  Proxy (cache Docker Hub):    10.0.2.30:{{ nexus_docker_proxy_port }}"
-      - "  Group (combined):             10.0.2.30:{{ nexus_docker_group_port }}"
+      - "  Hosted (push custom images): {{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}"
+      - "  Proxy (cache Docker Hub):    {{ nexus_registry_host }}:{{ nexus_docker_proxy_port }}"
+      - "  Group (combined):             {{ nexus_registry_host }}:{{ nexus_docker_group_port }}"
+      - ""
+      - "Kubernetes Nodes: {{ 'Configured ✅' if (configure_k8s_nodes | bool and groups['k8s_cluster'] is defined) else 'Skipped' }}"
       - ""
       - "Test commands:"
-      - "  docker login 10.0.2.30:{{ nexus_docker_hosted_port }}"
-      - "  docker tag hello-world 10.0.2.30:{{ nexus_docker_hosted_port }}/hello-world:latest"
-      - "  docker push 10.0.2.30:{{ nexus_docker_hosted_port }}/hello-world:latest"
+      - "  docker login {{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}"
+      - "  docker tag hello-world {{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}/hello-world:latest"
+      - "  docker push {{ nexus_registry_host }}:{{ nexus_docker_hosted_port }}/hello-world:latest"
       - ""
       - "Next steps:"
-      - "  1. Run: ansible-playbook ansible/playbooks/configure-k8s-nodes-nexus.yml"
-      - "  2. Create Kubernetes secret for image pulls"
-      - "  3. Configure Jenkins credentials"
+      - "  1. Create Kubernetes secret for image pulls"
+      - "  2. Configure Jenkins credentials"
       - ""
       - "Documentation: docs/NEXUS_DOCKER_REGISTRY_SETUP.md"
       - "=========================================="
