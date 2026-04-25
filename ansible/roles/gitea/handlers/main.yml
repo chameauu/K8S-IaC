@@ -1,0 +1,8 @@
+---
+# handlers file for gitea
+
+- name: restart gitea
+  docker_container:
+    name: "{{ gitea_container_name }}"
+    state: restarted
+  become: yes

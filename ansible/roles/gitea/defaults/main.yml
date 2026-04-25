@@ -31,3 +31,8 @@ gitea_data_volume: "gitea-data"
 
 # Container name
 gitea_container_name: "gitea"
+
+# Webhook configuration
+# Use "*" for development to allow webhooks to any host
+# Use specific IPs for production: "10.0.2.10,10.0.2.20"
+gitea_webhook_allowed_hosts: "*"

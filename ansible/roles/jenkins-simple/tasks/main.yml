@@ -1,0 +1,72 @@
+---
+- name: Create Jenkins namespace
+  shell: kubectl create namespace {{ jenkins_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+
+- name: Create Jenkins data directory on all nodes
+  shell: ssh {{ hostvars[item]['ansible_host'] }} "sudo mkdir -p {{ jenkins_storage_path }} && sudo chown -R 1000:1000 {{ jenkins_storage_path }}"
+  loop:
+    - node1
+    - node2
+  changed_when: false
+
+- name: Deploy Jenkins using manifest
+  command: kubectl apply -f {{ jenkins_manifest_path }}
+  register: kubectl_apply
+  changed_when: "'created' in kubectl_apply.stdout or 'configured' in kubectl_apply.stdout"
+
+- name: Wait for Jenkins pod to be created
+  command: kubectl get pods -n {{ jenkins_namespace }} -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
+  register: jenkins_pod_check
+  until: jenkins_pod_check.stdout != ""
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Wait for Jenkins pod to be ready
+  command: kubectl wait --for=condition=ready pod -l app=jenkins -n {{ jenkins_namespace }} --timeout=600s
+  changed_when: false
+
+- name: Get Jenkins pod details
+  command: kubectl get pods -n {{ jenkins_namespace }} -l app=jenkins -o jsonpath='{.items[0].metadata.name} {.items[0].spec.nodeName}'
+  register: jenkins_pod_info
+  changed_when: false
+
+- name: Set Jenkins pod facts
+  set_fact:
+    jenkins_pod_name: "{{ jenkins_pod_info.stdout.split()[0] }}"
+    jenkins_node_name: "{{ jenkins_pod_info.stdout.split()[1] }}"
+
+- name: Wait for Jenkins to fully start
+  pause:
+    seconds: 30
+
+- name: Get Jenkins initial admin password
+  shell: |
+    ssh {{ hostvars[jenkins_node_name]['ansible_host'] }} "sudo crictl ps | grep jenkins | awk '{print \$1}' | head -1 | xargs -I {} sudo crictl exec {} cat /var/jenkins_home/secrets/initialAdminPassword"
+  register: jenkins_password
+  changed_when: false
+  failed_when: false
+
+- name: Display Jenkins access information
+  debug:
+    msg:
+      - "=========================================="
+      - "Jenkins Deployment Complete!"
+      - "=========================================="
+      - ""
+      - "Access Jenkins at: http://{{ hostvars['master']['ansible_host'] }}:{{ jenkins_nodeport }}"
+      - "Or from host: http://localhost:{{ jenkins_nodeport }}"
+      - ""
+      - "Username: admin"
+      - "Password: {{ jenkins_password.stdout | default('Run the command below to get it') }}"
+      - ""
+      - "If password not shown, run:"
+      - "vagrant ssh {{ jenkins_node_name }} -c \"sudo crictl ps | grep jenkins | awk '{print \\$1}' | head -1 | xargs -I {} sudo crictl exec {} cat /var/jenkins_home/secrets/initialAdminPassword\""
+      - ""
+      - "Pod: {{ jenkins_pod_name }}"
+      - "Node: {{ jenkins_node_name }}"
+      - "Namespace: {{ jenkins_namespace }}"
+      - ""
+      - "Storage: {{ jenkins_storage_path }} ({{ jenkins_storage_size }})"
+      - "=========================================="

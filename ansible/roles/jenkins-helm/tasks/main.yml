@@ -1,0 +1,99 @@
+---
+- name: Add Jenkins Helm repository
+  kubernetes.core.helm_repository:
+    name: "{{ jenkins_helm_repo_name }}"
+    repo_url: "{{ jenkins_helm_repo_url }}"
+  delegate_to: localhost
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+  delegate_to: localhost
+
+- name: Create Jenkins namespace
+  kubernetes.core.k8s:
+    name: "{{ jenkins_helm_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  delegate_to: localhost
+
+- name: Check if Jenkins is already installed
+  command: helm list -n {{ jenkins_helm_namespace }} -o json
+  register: helm_list
+  changed_when: false
+  delegate_to: localhost
+
+- name: Parse Helm list output
+  set_fact:
+    jenkins_installed: "{{ (helm_list.stdout | from_json) | selectattr('name', 'equalto', jenkins_helm_release_name) | list | length > 0 }}"
+
+- name: Install Jenkins using Helm
+  kubernetes.core.helm:
+    name: "{{ jenkins_helm_release_name }}"
+    chart_ref: "{{ jenkins_helm_chart_name }}"
+    release_namespace: "{{ jenkins_helm_namespace }}"
+    create_namespace: true
+    values_files:
+      - "{{ jenkins_helm_values_file }}"
+    wait: true
+    wait_timeout: 10m
+  delegate_to: localhost
+  when: not jenkins_installed
+
+- name: Upgrade Jenkins using Helm (if already installed)
+  kubernetes.core.helm:
+    name: "{{ jenkins_helm_release_name }}"
+    chart_ref: "{{ jenkins_helm_chart_name }}"
+    release_namespace: "{{ jenkins_helm_namespace }}"
+    values_files:
+      - "{{ jenkins_helm_values_file }}"
+    wait: true
+    wait_timeout: 10m
+  delegate_to: localhost
+  when: jenkins_installed
+
+- name: Wait for Jenkins pod to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ jenkins_helm_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/component=jenkins-controller"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 600
+  delegate_to: localhost
+
+- name: Get Jenkins service details
+  kubernetes.core.k8s_info:
+    kind: Service
+    name: "{{ jenkins_helm_release_name }}"
+    namespace: "{{ jenkins_helm_namespace }}"
+  register: jenkins_service
+  delegate_to: localhost
+
+- name: Display Jenkins access information
+  debug:
+    msg:
+      - "=========================================="
+      - "Jenkins Helm Installation Complete!"
+      - "=========================================="
+      - ""
+      - "Access Jenkins at: http://{{ hostvars['master']['ansible_host'] }}:{{ jenkins_nodeport }}"
+      - "Username: {{ jenkins_admin_username }}"
+      - "Password: {{ jenkins_admin_password }}"
+      - ""
+      - "Helm Release: {{ jenkins_helm_release_name }}"
+      - "Namespace: {{ jenkins_helm_namespace }}"
+      - ""
+      - "To check status:"
+      - "  helm status {{ jenkins_helm_release_name }} -n {{ jenkins_helm_namespace }}"
+      - ""
+      - "To upgrade:"
+      - "  helm upgrade {{ jenkins_helm_release_name }} {{ jenkins_helm_chart_name }} -f {{ jenkins_helm_values_file }} -n {{ jenkins_helm_namespace }}"
+      - ""
+      - "To uninstall:"
+      - "  helm uninstall {{ jenkins_helm_release_name }} -n {{ jenkins_helm_namespace }}"
+      - "=========================================="

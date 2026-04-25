@@ -84,6 +84,27 @@
   register: gitea_check
   failed_when: false
 
+- name: Wait for Gitea configuration directory to be created
+  wait_for:
+    path: /var/lib/docker/volumes/{{ gitea_data_volume }}/_data/gitea/conf
+    state: directory
+    timeout: 60
+  become: yes
+  ignore_errors: yes
+
+- name: Configure Gitea webhook allowed hosts
+  blockinfile:
+    path: /var/lib/docker/volumes/{{ gitea_data_volume }}/_data/gitea/conf/app.ini
+    block: |
+      [webhook]
+      ALLOWED_HOST_LIST = {{ gitea_webhook_allowed_hosts }}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - WEBHOOK CONFIG"
+    create: yes
+    mode: '0644'
+  become: yes
+  notify: restart gitea
+  ignore_errors: yes
+
 - name: Display Gitea access information
   debug:
     msg:
@@ -108,11 +129,15 @@
       - "Volume: {{ gitea_data_volume }}"
       - "Status: {{ 'Running' if gitea_check.status == 200 else 'Starting (wait 1-2 minutes)' }}"
       - ""
+      - "Webhook Configuration:"
+      - "  ALLOWED_HOST_LIST: {{ gitea_webhook_allowed_hosts }}"
+      - "  (Allows webhooks to Jenkins and other services)"
+      - ""
       - "Next steps:"
       - "  1. Create admin user in Gitea UI"
-      - "  2. Create repository: hello-world-k8s"
-      - "  3. Push sample-app code"
-      - "  4. Configure Jenkins webhook"
+      - "  2. Create repository: hello-world"
+      - "  3. Push application code"
+      - "  4. Configure Jenkins webhook (see docs/WEBHOOK_SETUP_STEPS.md)"
       - ""
-      - "Documentation: sample-app/GIT_WEBHOOK_SETUP.md"
+      - "Documentation: docs/WEBHOOK_SETUP_STEPS.md"
       - "=========================================="
