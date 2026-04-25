@@ -1,0 +1,31 @@
+---
+# tasks file for nfs-client
+
+- name: Install NFS client packages
+  apt:
+    name: "{{ nfs_client_packages }}"
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Verify NFS client installation
+  command: dpkg -l nfs-common
+  register: nfs_client_check
+  changed_when: false
+  failed_when: false
+
+- name: Display NFS client status
+  debug:
+    msg: "NFS client installed: {{ 'Yes' if nfs_client_check.rc == 0 else 'No' }}"
+
+- name: Test NFS server connectivity
+  wait_for:
+    host: "{{ nfs_server_ip }}"
+    port: 2049
+    timeout: 5
+  ignore_errors: yes
+  register: nfs_connectivity
+
+- name: Display NFS server connectivity
+  debug:
+    msg: "NFS server {{ nfs_server_ip }} is {{ 'reachable' if nfs_connectivity.failed == false else 'unreachable' }}"

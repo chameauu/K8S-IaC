@@ -1,0 +1,10 @@
+---
+# defaults file for nfs-client
+
+# NFS client packages
+nfs_client_packages:
+  - nfs-common
+
+# NFS server to test connectivity
+nfs_server_ip: "10.0.2.30"
+nfs_test_share: "/data/nfs/shared"

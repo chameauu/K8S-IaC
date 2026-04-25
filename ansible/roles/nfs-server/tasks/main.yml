@@ -1,0 +1,66 @@
+---
+# tasks file for nfs-server
+
+- name: Install NFS server packages
+  apt:
+    name: "{{ nfs_server_packages }}"
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Ensure NFS server is enabled and started
+  systemd:
+    name: nfs-kernel-server
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Create NFS export directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ nfs_exports }}"
+  become: yes
+
+- name: Backup existing /etc/exports
+  copy:
+    src: /etc/exports
+    dest: /etc/exports.backup
+    remote_src: yes
+    force: no
+  become: yes
+  ignore_errors: yes
+
+- name: Configure NFS exports
+  lineinfile:
+    path: /etc/exports
+    line: "{{ item.path }} {{ item.options }}"
+    create: yes
+    state: present
+  loop: "{{ nfs_exports }}"
+  become: yes
+  notify: reload nfs exports
+
+- name: Export NFS shares
+  command: exportfs -a
+  become: yes
+  changed_when: false
+
+- name: Verify NFS exports
+  command: exportfs -v
+  register: nfs_exports_output
+  changed_when: false
+  become: yes
+
+- name: Display NFS exports
+  debug:
+    msg: "{{ nfs_exports_output.stdout_lines }}"
+
+- name: Check NFS server is listening
+  wait_for:
+    port: 2049
+    timeout: 10
+  become: yes

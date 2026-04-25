@@ -1,0 +1,45 @@
+---
+# Playbook to set up NFS server and clients for Kubernetes cluster
+
+- name: Set up NFS server on tools VM
+  hosts: tools
+  become: yes
+  roles:
+    - role: ../roles/nfs-server
+  tags:
+    - nfs-server
+
+- name: Set up NFS clients on Kubernetes nodes
+  hosts: k8s_cluster
+  become: yes
+  roles:
+    - role: ../roles/nfs-client
+  tags:
+    - nfs-client
+
+- name: Verify NFS setup
+  hosts: tools
+  become: yes
+  tasks:
+    - name: Display NFS server summary
+      debug:
+        msg:
+          - "=========================================="
+          - "NFS Server Setup Complete!"
+          - "=========================================="
+          - ""
+          - "NFS Server: {{ ansible_host }}"
+          - "NFS Exports:"
+          - "  - /data/nfs/jenkins (for Jenkins persistent storage)"
+          - "  - /data/nfs/shared (for shared storage)"
+          - ""
+          - "Next steps:"
+          - "  1. Create Kubernetes PersistentVolume: kubectl apply -f k8s/jenkins-nfs-pv.yaml"
+          - "  2. Create PersistentVolumeClaim: kubectl apply -f k8s/jenkins-nfs-pvc.yaml"
+          - "  3. Migrate Jenkins data to NFS"
+          - "  4. Update Jenkins deployment to use NFS"
+          - ""
+          - "Documentation: docs/MIGRATE_JENKINS_TO_NFS.md"
+          - "=========================================="
+  tags:
+    - summary
