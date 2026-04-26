@@ -1,0 +1,101 @@
+---
+# defaults file for vault
+
+# Vault version and configuration
+vault_version: "1.21.2"
+vault_replicas: 3
+vault_storage_size: "500Mi"
+vault_ui_nodeport: 30820
+vault_namespace: "vault"
+
+# NFS configuration
+vault_nfs_server: "10.0.2.30"
+vault_nfs_base_path: "/data/nfs/vault"
+vault_nfs_uid: 200
+vault_nfs_gid: 200
+
+# Vault initialization
+vault_key_shares: 5
+vault_key_threshold: 3
+vault_init_file: "/vagrant/vault-init.json"
+
+# Kubernetes master node
+k8s_master_node: "master"
+
+# Vault Secrets Operator
+vso_enabled: true
+vso_version: "1.3.0"
+vso_namespace: "vault-secrets-operator-system"
+
+# Secrets to store in Vault
+vault_secrets:
+  - path: "secret/nexus/docker-registry"
+    data:
+      username: "admin"
+      password: "Azertyqwerty1234."
+      server: "10.0.2.30:8082"
+  
+  - path: "secret/jenkins/admin"
+    data:
+      username: "admin"
+      password: "9087bcee82794ba4a227feef5fc5e652"
+  
+  - path: "secret/gitea/admin"
+    data:
+      username: "admin"
+      password: "admin123"
+  
+  - path: "secret/gitea/jmal"
+    data:
+      username: "jmal"
+      password: "Azertyqwerty1234."
+
+# Kubernetes authentication
+vault_k8s_auth_roles:
+  - name: "jenkins"
+    bound_service_account_names: "default"
+    bound_service_account_namespaces: "jenkins"
+    policies: "jenkins-policy"
+    ttl: "24h"
+
+# Vault policies
+vault_policies:
+  - name: "jenkins-policy"
+    policy: |
+      # Allow reading Nexus registry credentials
+      path "secret/data/nexus/docker-registry" {
+        capabilities = ["read"]
+      }
+
+      # Allow reading Jenkins credentials
+      path "secret/data/jenkins/*" {
+        capabilities = ["read"]
+      }
+
+      # Allow reading Gitea credentials
+      path "secret/data/gitea/*" {
+        capabilities = ["read"]
+      }
+
+      # Allow listing secrets
+      path "secret/metadata/*" {
+        capabilities = ["list"]
+      }
+
+# VaultStaticSecrets to create
+vault_static_secrets:
+  - name: "nexus-registry-secret-vault"
+    namespace: "jenkins"
+    vault_path: "nexus/docker-registry"
+    secret_type: "kubernetes.io/dockerconfigjson"
+    refresh_after: "10m"
+    transformation_template: |
+      {
+        "auths": {
+          "{{ .Secrets.server }}": {
+            "username": "{{ .Secrets.username }}",
+            "password": "{{ .Secrets.password }}",
+            "auth": "{{ printf "%s:%s" .Secrets.username .Secrets.password | b64enc }}"
+          }
+        }
+      }

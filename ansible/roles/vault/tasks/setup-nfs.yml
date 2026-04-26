@@ -1,0 +1,75 @@
+---
+# Setup NFS storage for Vault
+
+- name: Create Vault NFS directories
+  file:
+    path: "{{ vault_nfs_base_path }}/{{ item }}"
+    state: directory
+    owner: "{{ vault_nfs_uid }}"
+    group: "{{ vault_nfs_gid }}"
+    mode: '0755'
+  loop:
+    - vault-0
+    - vault-1
+    - vault-2
+  tags:
+    - vault-nfs
+
+- name: Check if Vault NFS export exists
+  shell: grep -q "{{ vault_nfs_base_path }}" /etc/exports
+  register: vault_export_exists
+  failed_when: false
+  changed_when: false
+  tags:
+    - vault-nfs
+
+- name: Add Vault NFS export
+  lineinfile:
+    path: /etc/exports
+    line: "{{ vault_nfs_base_path }} *(rw,sync,no_subtree_check,no_root_squash)"
+    create: yes
+  when: vault_export_exists.rc != 0
+  notify: reload nfs exports
+  tags:
+    - vault-nfs
+
+- name: Reload NFS exports
+  command: exportfs -ra
+  tags:
+    - vault-nfs
+
+- name: Create Vault PersistentVolumes
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    ---
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: vault-{{ item }}-pv
+      labels:
+        app: vault
+        instance: vault-{{ item }}
+    spec:
+      capacity:
+        storage: {{ vault_storage_size }}
+      volumeMode: Filesystem
+      accessModes:
+        - ReadWriteOnce
+      persistentVolumeReclaimPolicy: Retain
+      storageClassName: vault-nfs
+      mountOptions:
+        - hard
+        - nfsvers=4.1
+      nfs:
+        path: {{ vault_nfs_base_path }}/vault-{{ item }}
+        server: {{ vault_nfs_server }}
+    EOF
+  delegate_to: "{{ k8s_master_node }}"
+  loop:
+    - 0
+    - 1
+    - 2
+  register: pv_result
+  changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
+  tags:
+    - vault-nfs

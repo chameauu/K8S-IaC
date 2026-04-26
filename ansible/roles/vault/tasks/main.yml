@@ -1,0 +1,64 @@
+---
+# tasks file for vault
+
+- name: Include NFS setup tasks
+  include_tasks: setup-nfs.yml
+  tags:
+    - vault-nfs
+
+- name: Include Vault installation tasks
+  include_tasks: install-vault.yml
+  tags:
+    - vault-install
+
+- name: Include Vault initialization tasks
+  include_tasks: initialize-vault.yml
+  tags:
+    - vault-init
+
+- name: Include Vault configuration tasks
+  include_tasks: configure-vault.yml
+  tags:
+    - vault-config
+
+- name: Include Kubernetes authentication tasks
+  include_tasks: configure-k8s-auth.yml
+  tags:
+    - vault-k8s-auth
+
+- name: Include VSO installation tasks
+  include_tasks: install-vso.yml
+  when: vso_enabled
+  tags:
+    - vault-vso
+
+- name: Include VaultStaticSecret creation tasks
+  include_tasks: create-vault-static-secrets.yml
+  when: vso_enabled
+  tags:
+    - vault-static-secrets
+
+- name: Display Vault information
+  debug:
+    msg:
+      - "=========================================="
+      - "Vault Installation Complete!"
+      - "=========================================="
+      - ""
+      - "Vault UI: http://localhost:{{ vault_ui_nodeport }}"
+      - "Vault Namespace: {{ vault_namespace }}"
+      - "Vault Replicas: {{ vault_replicas }}"
+      - ""
+      - "Initialization file: {{ vault_init_file }}"
+      - "⚠️  Keep this file secure!"
+      - ""
+      - "VSO Enabled: {{ vso_enabled }}"
+      - "VSO Namespace: {{ vso_namespace }}"
+      - ""
+      - "Next steps:"
+      - "  1. Access Vault UI at http://localhost:{{ vault_ui_nodeport }}"
+      - "  2. Check vault-init.json for root token and unseal keys"
+      - "  3. Verify VaultStaticSecrets are synced"
+      - "  4. Test Jenkins build with Vault-managed secrets"
+  tags:
+    - always

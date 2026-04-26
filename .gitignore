@@ -11,3 +11,4 @@ k8s/
 hello-world/
 download/
 deep-dive
+vault-init.json

@@ -17,3 +17,6 @@
 
 # Setup tools VM with kubectl, Helm, Docker, Nexus, Gitea
 - import_playbook: tools.yml
+
+# Setup HashiCorp Vault with Secrets Operator
+- import_playbook: setup-vault.yml

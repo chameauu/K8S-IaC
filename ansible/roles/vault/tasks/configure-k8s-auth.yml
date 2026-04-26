@@ -1,0 +1,72 @@
+---
+# Configure Kubernetes authentication
+
+- name: Check if Kubernetes auth is enabled
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault auth list -format=json
+  delegate_to: "{{ k8s_master_node }}"
+  register: auth_methods
+  changed_when: false
+  tags:
+    - vault-k8s-auth
+
+- name: Enable Kubernetes auth method
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault auth enable kubernetes
+  delegate_to: "{{ k8s_master_node }}"
+  when: "'kubernetes/' not in (auth_methods.stdout | from_json)"
+  register: k8s_auth_enable
+  changed_when: "'Success' in k8s_auth_enable.stdout"
+  tags:
+    - vault-k8s-auth
+
+- name: Configure Kubernetes auth
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- sh -c '
+    vault write auth/kubernetes/config \
+      token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+      kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443" \
+      kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    '
+  delegate_to: "{{ k8s_master_node }}"
+  register: k8s_auth_config
+  changed_when: "'Success' in k8s_auth_config.stdout"
+  tags:
+    - vault-k8s-auth
+
+- name: Create Vault policies
+  shell: |
+    cat > /tmp/{{ item.name }}.hcl << 'EOF'
+    {{ item.policy }}
+    EOF
+    kubectl cp /tmp/{{ item.name }}.hcl {{ vault_namespace }}/vault-0:/tmp/{{ item.name }}.hcl
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault policy write {{ item.name }} /tmp/{{ item.name }}.hcl
+  delegate_to: "{{ k8s_master_node }}"
+  loop: "{{ vault_policies }}"
+  register: policy_create
+  changed_when: "'Success' in policy_create.stdout"
+  tags:
+    - vault-k8s-auth
+
+- name: Create Kubernetes auth roles
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault write auth/kubernetes/role/{{ item.name }} \
+      bound_service_account_names={{ item.bound_service_account_names }} \
+      bound_service_account_namespaces={{ item.bound_service_account_namespaces }} \
+      policies={{ item.policies }} \
+      ttl={{ item.ttl }}
+  delegate_to: "{{ k8s_master_node }}"
+  loop: "{{ vault_k8s_auth_roles }}"
+  register: role_create
+  changed_when: "'Success' in role_create.stdout"
+  tags:
+    - vault-k8s-auth
+
+- name: Display Kubernetes auth configuration
+  debug:
+    msg:
+      - "Kubernetes authentication configured"
+      - "Policies created: {{ vault_policies | map(attribute='name') | list | join(', ') }}"
+      - "Roles created: {{ vault_k8s_auth_roles | map(attribute='name') | list | join(', ') }}"
+  tags:
+    - vault-k8s-auth

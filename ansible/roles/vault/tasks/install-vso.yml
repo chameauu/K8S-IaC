@@ -1,0 +1,91 @@
+---
+# Install Vault Secrets Operator
+
+- name: Check if VSO is already installed
+  shell: helm list -n {{ vso_namespace }} | grep -q vault-secrets-operator
+  register: vso_installed
+  failed_when: false
+  changed_when: false
+  tags:
+    - vault-vso
+
+- name: Install Vault Secrets Operator via Helm
+  shell: |
+    helm install vault-secrets-operator hashicorp/vault-secrets-operator \
+      --version {{ vso_version }} \
+      --namespace {{ vso_namespace }} \
+      --create-namespace
+  when: vso_installed.rc != 0
+  register: vso_install_result
+  tags:
+    - vault-vso
+
+- name: Wait for VSO pod to be ready
+  shell: kubectl get pods -n {{ vso_namespace }} -l app.kubernetes.io/name=vault-secrets-operator -o jsonpath='{.items[0].status.containerStatuses[*].ready}'
+  delegate_to: "{{ k8s_master_node }}"
+  register: vso_ready
+  until: vso_ready.stdout.split() | select('equalto', 'true') | list | length == 2
+  retries: 60
+  delay: 5
+  changed_when: false
+  tags:
+    - vault-vso
+
+- name: Create VaultConnection in jenkins namespace
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: secrets.hashicorp.com/v1beta1
+    kind: VaultConnection
+    metadata:
+      name: vault-connection
+      namespace: jenkins
+    spec:
+      address: http://vault.{{ vault_namespace }}.svc.cluster.local:8200
+      skipTLSVerify: true
+    EOF
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_connection_result
+  changed_when: "'created' in vault_connection_result.stdout or 'configured' in vault_connection_result.stdout"
+  tags:
+    - vault-vso
+
+- name: Create VaultAuth in jenkins namespace
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: secrets.hashicorp.com/v1beta1
+    kind: VaultAuth
+    metadata:
+      name: vault-auth
+      namespace: jenkins
+    spec:
+      vaultConnectionRef: vault-connection
+      method: kubernetes
+      mount: kubernetes
+      kubernetes:
+        role: jenkins
+        serviceAccount: default
+    EOF
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_auth_result
+  changed_when: "'created' in vault_auth_result.stdout or 'configured' in vault_auth_result.stdout"
+  tags:
+    - vault-vso
+
+- name: Wait for VaultAuth to be ready
+  shell: kubectl get vaultauth vault-auth -n jenkins -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_auth_ready
+  until: vault_auth_ready.stdout == "True"
+  retries: 30
+  delay: 2
+  changed_when: false
+  tags:
+    - vault-vso
+
+- name: Display VSO installation status
+  debug:
+    msg:
+      - "Vault Secrets Operator installed successfully"
+      - "VaultConnection and VaultAuth created in jenkins namespace"
+  tags:
+    - vault-vso

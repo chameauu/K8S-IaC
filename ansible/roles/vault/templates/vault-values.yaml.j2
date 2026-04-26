@@ -1,0 +1,53 @@
+server:
+  ha:
+    enabled: true
+    replicas: {{ vault_replicas }}
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        
+        listener "tcp" {
+          tls_disable     = 1
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
+        
+        storage "raft" {
+          path = "/vault/data"
+          
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+        
+        service_registration "kubernetes" {}
+  
+  dataStorage:
+    enabled: true
+    size: {{ vault_storage_size }}
+    storageClass: vault-nfs
+    accessMode: ReadWriteOnce
+  
+  # Fix NFS permissions issue
+  statefulSet:
+    securityContext:
+      pod:
+        fsGroup: {{ vault_nfs_gid }}
+        runAsUser: {{ vault_nfs_uid }}
+        runAsGroup: {{ vault_nfs_gid }}
+  
+  # Allow multiple pods on same node (we only have 2 worker nodes)
+  affinity: ""
+
+ui:
+  enabled: true
+  serviceType: NodePort
+  serviceNodePort: {{ vault_ui_nodeport }}

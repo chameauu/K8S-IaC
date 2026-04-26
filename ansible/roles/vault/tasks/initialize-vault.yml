@@ -1,0 +1,156 @@
+---
+# Initialize and unseal Vault
+
+- name: Wait for vault-0 to be running
+  shell: kubectl get pod vault-0 -n {{ vault_namespace }} -o jsonpath='{.status.phase}'
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_0_status
+  until: vault_0_status.stdout == "Running"
+  retries: 60
+  delay: 5
+  changed_when: false
+  tags:
+    - vault-init
+
+- name: Check if Vault is already initialized
+  shell: kubectl exec -n {{ vault_namespace }} vault-0 -- vault status -format=json 2>/dev/null || echo '{"initialized":false}'
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_status
+  changed_when: false
+  failed_when: false
+  tags:
+    - vault-init
+
+- name: Parse Vault status
+  set_fact:
+    vault_initialized: "{{ (vault_status.stdout | from_json).initialized | default(false) }}"
+  tags:
+    - vault-init
+
+- name: Initialize Vault
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault operator init \
+      -key-shares={{ vault_key_shares }} \
+      -key-threshold={{ vault_key_threshold }} \
+      -format=json
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_init_output
+  when: not vault_initialized
+  tags:
+    - vault-init
+
+- name: Save Vault initialization output
+  copy:
+    content: "{{ vault_init_output.stdout }}"
+    dest: "{{ vault_init_file }}"
+    mode: '0600'
+  when: not vault_initialized and vault_init_output is defined
+  delegate_to: localhost
+  tags:
+    - vault-init
+
+- name: Read Vault initialization file
+  slurp:
+    src: "{{ vault_init_file }}"
+  register: vault_init_data
+  delegate_to: localhost
+  tags:
+    - vault-init
+
+- name: Parse Vault init data
+  set_fact:
+    vault_unseal_keys: "{{ (vault_init_data.content | b64decode | from_json).unseal_keys_b64 }}"
+    vault_root_token: "{{ (vault_init_data.content | b64decode | from_json).root_token }}"
+  tags:
+    - vault-init
+
+- name: Unseal vault-0
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault operator unseal {{ item }}
+  delegate_to: "{{ k8s_master_node }}"
+  loop: "{{ vault_unseal_keys[:vault_key_threshold] }}"
+  register: unseal_result
+  changed_when: "'Sealed: false' in unseal_result.stdout"
+  tags:
+    - vault-init
+
+- name: Wait for vault-1 and vault-2 to be running
+  shell: kubectl get pod {{ item }} -n {{ vault_namespace }} -o jsonpath='{.status.phase}'
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_pod_status
+  until: vault_pod_status.stdout == "Running"
+  retries: 60
+  delay: 5
+  changed_when: false
+  loop:
+    - vault-1
+    - vault-2
+  tags:
+    - vault-init
+
+- name: Join vault-1 to Raft cluster
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-1 -- vault operator raft join http://vault-0.vault-internal:8200
+  delegate_to: "{{ k8s_master_node }}"
+  register: join_result
+  failed_when: false
+  changed_when: "'Joined: true' in join_result.stdout"
+  tags:
+    - vault-init
+
+- name: Join vault-2 to Raft cluster
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-2 -- vault operator raft join http://vault-0.vault-internal:8200
+  delegate_to: "{{ k8s_master_node }}"
+  register: join_result
+  failed_when: false
+  changed_when: "'Joined: true' in join_result.stdout"
+  tags:
+    - vault-init
+
+- name: Unseal vault-1
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-1 -- vault operator unseal {{ item }}
+  delegate_to: "{{ k8s_master_node }}"
+  loop: "{{ vault_unseal_keys[:vault_key_threshold] }}"
+  register: unseal_result
+  changed_when: "'Sealed: false' in unseal_result.stdout"
+  tags:
+    - vault-init
+
+- name: Unseal vault-2
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-2 -- vault operator unseal {{ item }}
+  delegate_to: "{{ k8s_master_node }}"
+  loop: "{{ vault_unseal_keys[:vault_key_threshold] }}"
+  register: unseal_result
+  changed_when: "'Sealed: false' in unseal_result.stdout"
+  tags:
+    - vault-init
+
+- name: Wait for all Vault pods to be ready
+  shell: kubectl get pods -n {{ vault_namespace }} -l app.kubernetes.io/name=vault -o jsonpath='{.items[*].status.containerStatuses[0].ready}'
+  delegate_to: "{{ k8s_master_node }}"
+  register: vault_ready
+  until: vault_ready.stdout.split() | select('equalto', 'true') | list | length == vault_replicas
+  retries: 30
+  delay: 2
+  changed_when: false
+  tags:
+    - vault-init
+
+- name: Verify Raft cluster
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault login {{ vault_root_token }} > /dev/null 2>&1
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault operator raft list-peers
+  delegate_to: "{{ k8s_master_node }}"
+  register: raft_peers
+  changed_when: false
+  tags:
+    - vault-init
+
+- name: Display Raft cluster status
+  debug:
+    msg: "{{ raft_peers.stdout_lines }}"
+  tags:
+    - vault-init
