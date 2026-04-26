@@ -5,7 +5,7 @@
   gather_facts: yes
   
   roles:
-    - vault
+    - ../roles/vault
   
   post_tasks:
     - name: Display completion message

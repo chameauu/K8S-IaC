@@ -3,6 +3,10 @@
   shell: kubectl create namespace {{ jenkins_namespace }} --dry-run=client -o yaml | kubectl apply -f -
   changed_when: false
 
+- name: Create Jenkins NFS storage (PV/PVC)
+  include_tasks: create-nfs-storage.yml
+  when: jenkins_use_nfs | bool
+
 - name: Create Jenkins data directory on all nodes
   shell: ssh {{ hostvars[item]['ansible_host'] }} "sudo mkdir -p {{ jenkins_storage_path }} && sudo chown -R 1000:1000 {{ jenkins_storage_path }}"
   loop:

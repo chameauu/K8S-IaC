@@ -49,6 +49,7 @@
   retries: 30
   delay: 2
   changed_when: false
+  when: vault_installed.rc != 0
   tags:
     - vault-install
 

@@ -13,14 +13,13 @@ nfs_exports:
     group: "nogroup"
     mode: "0777"
     options: "*(rw,sync,no_subtree_check,no_root_squash)"
+  - path: /data/nfs/vault
+    owner: "100"
+    group: "1000"
+    mode: "0755"
+    options: "*(rw,sync,no_subtree_check,no_root_squash)"
 
 # NFS server packages
 nfs_server_packages:
   - nfs-kernel-server
   - nfs-common
-
-# Kubernetes integration
-create_k8s_resources: true  # Set to false to skip K8s PV/PVC creation
-nfs_server_ip: "10.0.2.30"
-nfs_jenkins_storage_size: "20Gi"
-nfs_jenkins_export: "/data/nfs/jenkins"

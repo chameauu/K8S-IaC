@@ -1,12 +1,18 @@
 ---
 # Main playbook for setting up complete Kubernetes cluster
+# Execution order follows dependency chain:
+# 1. K8s cluster (common → master → workers)
+# 2. NFS storage (required by Jenkins and Vault)
+# 3. kubectl + Helm (required by Vault installation)
+# 4. Vault (provides secrets for other tools)
+# 5. Remaining tools (Docker, Nexus, Gitea - can use Vault for secrets)
+# 6. Jenkins (depends on NFS and Vault)
+
 - name: Common node setup for all Kubernetes nodes
   hosts: k8s_cluster
   become: true
   roles:
     - ../roles/common-node
-
-
 
 # Initialize Kubernetes master node
 - import_playbook: master.yml
@@ -14,9 +20,29 @@
 # Join worker nodes to cluster
 - import_playbook: workers.yml
 
+# Setup NFS storage (required by Jenkins and Vault)
+- import_playbook: setup-nfs.yml
 
-# Setup tools VM with kubectl, Helm, Docker, Nexus, Gitea
-- import_playbook: tools.yml
+# Install kubectl and Helm (required by Vault)
+- name: Install kubectl and Helm on tools VM
+  hosts: tools
+  become: true
+  roles:
+    - ../roles/kubectl
+    - ../roles/helm
 
-# Setup HashiCorp Vault with Secrets Operator
+# Setup HashiCorp Vault with Secrets Operator (provides secrets for other tools)
 - import_playbook: setup-vault.yml
+
+# Install remaining tools (Docker, Nexus, Gitea)
+- name: Install Docker, Nexus, and Gitea on tools VM
+  hosts: tools
+  become: true
+  roles:
+    - ../roles/docker
+    - ../roles/nexus
+    - ../roles/nexus-docker-registry
+    - ../roles/gitea
+
+# Deploy Jenkins on Kubernetes (depends on NFS and Vault)
+- import_playbook: jenkins.yml

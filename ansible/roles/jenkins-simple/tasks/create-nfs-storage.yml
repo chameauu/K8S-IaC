@@ -1,12 +1,5 @@
 ---
-# Create Kubernetes PersistentVolume and PersistentVolumeClaim for NFS
-
-- name: Create Jenkins namespace
-  shell: kubectl create namespace jenkins --dry-run=client -o yaml | kubectl apply -f -
-  delegate_to: master
-  changed_when: false
-  tags:
-    - k8s-resources
+# Create Jenkins-specific NFS PersistentVolume and PersistentVolumeClaim
 
 - name: Create Jenkins NFS PersistentVolume
   shell: |
@@ -20,7 +13,7 @@
         app: jenkins
     spec:
       capacity:
-        storage: {{ nfs_jenkins_storage_size }}
+        storage: {{ jenkins_nfs_storage_size }}
       volumeMode: Filesystem
       accessModes:
         - ReadWriteMany
@@ -32,14 +25,11 @@
         - timeo=600
         - retrans=2
       nfs:
-        path: {{ nfs_jenkins_export }}
+        path: {{ jenkins_nfs_path }}
         server: {{ nfs_server_ip }}
     EOF
-  delegate_to: master
   register: pv_result
   changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
-  tags:
-    - k8s-resources
 
 - name: Create Jenkins NFS PersistentVolumeClaim
   shell: |
@@ -48,40 +38,42 @@
     kind: PersistentVolumeClaim
     metadata:
       name: jenkins-nfs-pvc
-      namespace: jenkins
+      namespace: {{ jenkins_namespace }}
     spec:
       accessModes:
         - ReadWriteMany
       storageClassName: nfs
       resources:
         requests:
-          storage: {{ nfs_jenkins_storage_size }}
+          storage: {{ jenkins_nfs_storage_size }}
       selector:
         matchLabels:
           app: jenkins
     EOF
-  delegate_to: master
   register: pvc_result
   changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
-  tags:
-    - k8s-resources
 
 - name: Wait for PVC to be bound
-  shell: kubectl get pvc jenkins-nfs-pvc -n jenkins -o jsonpath='{.status.phase}'
-  delegate_to: master
+  shell: kubectl get pvc jenkins-nfs-pvc -n {{ jenkins_namespace }} -o jsonpath='{.status.phase}'
   register: pvc_status
   until: pvc_status.stdout == "Bound"
   retries: 30
   delay: 2
   changed_when: false
-  tags:
-    - k8s-resources
+  when: not ansible_check_mode
 
-- name: Display Kubernetes resources status
+- name: Set PVC status for check mode
+  set_fact:
+    pvc_status:
+      stdout: "Check Mode - Not Verified"
+  when: ansible_check_mode
+
+- name: Display Jenkins NFS storage status
   debug:
     msg:
-      - "Kubernetes NFS resources created:"
+      - "Jenkins NFS storage created:"
       - "  PersistentVolume: jenkins-nfs-pv"
       - "  PersistentVolumeClaim: jenkins-nfs-pvc ({{ pvc_status.stdout }})"
-  tags:
-    - k8s-resources
+      - "  NFS Server: {{ nfs_server_ip }}"
+      - "  NFS Path: {{ jenkins_nfs_path }}"
+      - "  Storage Size: {{ jenkins_nfs_storage_size }}"
