@@ -55,6 +55,22 @@
     path: /home/vagrant/.kube/config
   register: kubeconfig_stat
 
+- name: Fetch kubeconfig from master node
+  slurp:
+    src: /home/vagrant/.kube/config
+  register: master_kubeconfig
+  delegate_to: master
+  when: not kubeconfig_stat.stat.exists
+
+- name: Copy kubeconfig to tools VM
+  copy:
+    content: "{{ master_kubeconfig.content | b64decode }}"
+    dest: /home/vagrant/.kube/config
+    owner: vagrant
+    group: vagrant
+    mode: '0600'
+  when: not kubeconfig_stat.stat.exists and master_kubeconfig is defined
+
 - name: Display kubeconfig status
   debug:
     msg: "kubeconfig exists: {{ kubeconfig_stat.stat.exists }}"

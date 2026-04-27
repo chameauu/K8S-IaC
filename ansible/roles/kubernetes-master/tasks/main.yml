@@ -1,15 +1,4 @@
 ---
-- name: Install kubeadm on master
-  apt:
-    name:
-      - kubeadm
-    state: present
-    update_cache: yes
-
-- name: Hold kubeadm package
-  dpkg_selections:
-    name: kubeadm
-    selection: hold
 
 - name: Check if cluster is already initialized
   stat:

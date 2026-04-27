@@ -102,7 +102,7 @@
     state: present
     filename: kubernetes
 
-- name: Install kubelet and kubectl (no kubeadm)
+- name: Install kubelet and kubectl
   apt:
     name:
       - kubelet
