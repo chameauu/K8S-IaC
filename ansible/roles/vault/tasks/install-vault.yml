@@ -12,6 +12,7 @@
   shell: |
     helm repo add hashicorp https://helm.releases.hashicorp.com 2>/dev/null || true
     helm repo update
+  become: false
   changed_when: false
   tags:
     - vault-install
@@ -25,6 +26,7 @@
 
 - name: Check if Vault is already installed
   shell: helm list -n {{ vault_namespace }} | grep -q vault
+  become: false
   register: vault_installed
   failed_when: false
   changed_when: false
@@ -36,6 +38,7 @@
     helm install vault hashicorp/vault \
       --namespace {{ vault_namespace }} \
       --values /tmp/vault-values.yaml
+  become: false
   when: vault_installed.rc != 0
   register: vault_install_result
   tags:

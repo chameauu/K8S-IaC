@@ -17,7 +17,7 @@ vault_nfs_gid: 200
 # Vault initialization
 vault_key_shares: 5
 vault_key_threshold: 3
-vault_init_file: "/vagrant/vault-init.json"
+vault_init_file: "vault-init.json"
 
 # Kubernetes master node
 k8s_master_node: "master"
@@ -89,13 +89,3 @@ vault_static_secrets:
     vault_path: "nexus/docker-registry"
     secret_type: "kubernetes.io/dockerconfigjson"
     refresh_after: "10m"
-    transformation_template: |
-      {
-        "auths": {
-          "{{ .Secrets.server }}": {
-            "username": "{{ .Secrets.username }}",
-            "password": "{{ .Secrets.password }}",
-            "auth": "{{ printf "%s:%s" .Secrets.username .Secrets.password | b64enc }}"
-          }
-        }
-      }

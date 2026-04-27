@@ -1,3 +1,6 @@
 ---
 # Defaults for cni-flannel role
 flannel_version: "latest"
+
+# Network interface for Flannel to use (NAT Network interface in dual-adapter setup)
+flannel_iface: "enp0s8"

@@ -13,9 +13,10 @@
     - vault-init
 
 - name: Check if Vault is already initialized
-  shell: kubectl exec -n {{ vault_namespace }} vault-0 -- vault status -format=json 2>/dev/null || echo '{"initialized":false}'
+  shell: |
+    kubectl exec -n {{ vault_namespace }} vault-0 -- vault status -format=json 2>/dev/null || true
   delegate_to: "{{ k8s_master_node }}"
-  register: vault_status
+  register: vault_status_raw
   changed_when: false
   failed_when: false
   tags:
@@ -23,7 +24,7 @@
 
 - name: Parse Vault status
   set_fact:
-    vault_initialized: "{{ (vault_status.stdout | from_json).initialized | default(false) }}"
+    vault_initialized: "{{ '\"initialized\": true' in vault_status_raw.stdout }}"
   tags:
     - vault-init
 
@@ -46,6 +47,7 @@
     mode: '0600'
   when: not vault_initialized and vault_init_output is defined
   delegate_to: localhost
+  become: false
   tags:
     - vault-init
 
@@ -54,6 +56,7 @@
     src: "{{ vault_init_file }}"
   register: vault_init_data
   delegate_to: localhost
+  become: false
   tags:
     - vault-init
 
@@ -105,6 +108,12 @@
   register: join_result
   failed_when: false
   changed_when: "'Joined: true' in join_result.stdout"
+  tags:
+    - vault-init
+
+- name: Wait for vault-2 to sync with Raft cluster
+  pause:
+    seconds: 5
   tags:
     - vault-init
 

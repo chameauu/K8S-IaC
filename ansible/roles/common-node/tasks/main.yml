@@ -119,3 +119,15 @@
     - kubelet
     - kubectl
     - kubeadm
+
+- name: Get NAT Network IP (enp0s8)
+  shell: ip -4 addr show enp0s8 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
+  register: nat_network_ip
+  changed_when: false
+
+- name: Configure kubelet with correct node IP
+  lineinfile:
+    path: /etc/default/kubelet
+    line: 'KUBELET_EXTRA_ARGS=--node-ip={{ nat_network_ip.stdout }}'
+    create: yes
+  notify: restart kubelet

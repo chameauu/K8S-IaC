@@ -18,13 +18,13 @@ server:
           path = "/vault/data"
           
           retry_join {
-            leader_api_addr = "http://vault-0.vault-internal:8200"
+            leader_api_addr = "http://vault-0.vault-internal.{{ vault_namespace }}.svc.cluster.local:8200"
           }
           retry_join {
-            leader_api_addr = "http://vault-1.vault-internal:8200"
+            leader_api_addr = "http://vault-1.vault-internal.{{ vault_namespace }}.svc.cluster.local:8200"
           }
           retry_join {
-            leader_api_addr = "http://vault-2.vault-internal:8200"
+            leader_api_addr = "http://vault-2.vault-internal.{{ vault_namespace }}.svc.cluster.local:8200"
           }
         }
         
@@ -43,6 +43,16 @@ server:
         fsGroup: {{ vault_nfs_gid }}
         runAsUser: {{ vault_nfs_uid }}
         runAsGroup: {{ vault_nfs_gid }}
+  
+  # Readiness probe configuration - allow sealed status during initialization
+  readinessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+  
+  livenessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true"
+    initialDelaySeconds: 60
   
   # Allow multiple pods on same node (we only have 2 worker nodes)
   affinity: ""

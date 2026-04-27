@@ -3,6 +3,7 @@
 
 - name: Check if VSO is already installed
   shell: helm list -n {{ vso_namespace }} | grep -q vault-secrets-operator
+  become: false
   register: vso_installed
   failed_when: false
   changed_when: false
@@ -15,6 +16,7 @@
       --version {{ vso_version }} \
       --namespace {{ vso_namespace }} \
       --create-namespace
+  become: false
   when: vso_installed.rc != 0
   register: vso_install_result
   tags:
@@ -27,6 +29,13 @@
   until: vso_ready.stdout.split() | select('equalto', 'true') | list | length == 2
   retries: 60
   delay: 5
+  changed_when: false
+  tags:
+    - vault-vso
+
+- name: Create jenkins namespace
+  shell: kubectl create namespace jenkins --dry-run=client -o yaml | kubectl apply -f -
+  delegate_to: "{{ k8s_master_node }}"
   changed_when: false
   tags:
     - vault-vso
