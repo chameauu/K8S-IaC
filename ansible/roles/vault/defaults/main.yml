@@ -27,65 +27,9 @@ vso_enabled: true
 vso_version: "1.3.0"
 vso_namespace: "vault-secrets-operator-system"
 
-# Secrets to store in Vault
-vault_secrets:
-  - path: "secret/nexus/docker-registry"
-    data:
-      username: "admin"
-      password: "Azertyqwerty1234."
-      server: "10.0.2.30:8082"
-  
-  - path: "secret/jenkins/admin"
-    data:
-      username: "admin"
-      password: "9087bcee82794ba4a227feef5fc5e652"
-  
-  - path: "secret/gitea/admin"
-    data:
-      username: "admin"
-      password: "admin123"
-  
-  - path: "secret/gitea/jmal"
-    data:
-      username: "jmal"
-      password: "Azertyqwerty1234."
-
-# Kubernetes authentication
-vault_k8s_auth_roles:
-  - name: "jenkins"
-    bound_service_account_names: "default"
-    bound_service_account_namespaces: "jenkins"
-    policies: "jenkins-policy"
-    ttl: "24h"
-
-# Vault policies
-vault_policies:
-  - name: "jenkins-policy"
-    policy: |
-      # Allow reading Nexus registry credentials
-      path "secret/data/nexus/docker-registry" {
-        capabilities = ["read"]
-      }
-
-      # Allow reading Jenkins credentials
-      path "secret/data/jenkins/*" {
-        capabilities = ["read"]
-      }
-
-      # Allow reading Gitea credentials
-      path "secret/data/gitea/*" {
-        capabilities = ["read"]
-      }
-
-      # Allow listing secrets
-      path "secret/metadata/*" {
-        capabilities = ["list"]
-      }
-
-# VaultStaticSecrets to create
-vault_static_secrets:
-  - name: "nexus-registry-secret-vault"
-    namespace: "jenkins"
-    vault_path: "nexus/docker-registry"
-    secret_type: "kubernetes.io/dockerconfigjson"
-    refresh_after: "10m"
+# Vault only manages its own infrastructure
+# Individual tools (Jenkins, Nexus, Gitea) manage their own secrets
+vault_secrets: []
+vault_k8s_auth_roles: []
+vault_policies: []
+vault_static_secrets: []

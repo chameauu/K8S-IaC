@@ -12,6 +12,15 @@
   tags:
     - vault-init
 
+- name: Check if Vault initialization file exists
+  stat:
+    path: "{{ vault_init_file }}"
+  register: vault_init_file_stat
+  delegate_to: localhost
+  become: false
+  tags:
+    - vault-init
+
 - name: Check if Vault is already initialized
   shell: |
     kubectl exec -n {{ vault_namespace }} vault-0 -- vault status -format=json 2>/dev/null || true
@@ -25,6 +34,7 @@
 - name: Parse Vault status
   set_fact:
     vault_initialized: "{{ '\"initialized\": true' in vault_status_raw.stdout }}"
+    vault_init_file_exists: "{{ vault_init_file_stat.stat.exists }}"
   tags:
     - vault-init
 
@@ -48,6 +58,18 @@
   when: not vault_initialized and vault_init_output is defined
   delegate_to: localhost
   become: false
+  tags:
+    - vault-init
+
+- name: Fail if Vault is initialized but no init file exists
+  fail:
+    msg: |
+      Vault is already initialized but {{ vault_init_file }} does not exist.
+      This means the unseal keys and root token are not available.
+      Please either:
+      1. Provide the vault-init.json file with unseal keys and root token
+      2. Delete and recreate the Vault cluster
+  when: vault_initialized and not vault_init_file_exists
   tags:
     - vault-init
 
@@ -150,8 +172,10 @@
 
 - name: Verify Raft cluster
   shell: |
-    kubectl exec -n {{ vault_namespace }} vault-0 -- vault login {{ vault_root_token }} > /dev/null 2>&1
-    kubectl exec -n {{ vault_namespace }} vault-0 -- vault operator raft list-peers
+    kubectl exec -n {{ vault_namespace }} vault-0 -- sh -c '
+      export VAULT_TOKEN="{{ vault_root_token }}"
+      vault operator raft list-peers
+    '
   delegate_to: "{{ k8s_master_node }}"
   register: raft_peers
   changed_when: false
