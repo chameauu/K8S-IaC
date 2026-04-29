@@ -47,12 +47,17 @@ server:
   # Readiness probe configuration - allow sealed status during initialization
   readinessProbe:
     enabled: true
-    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+    path: "{{ vault_readiness_probe_path }}"
   
+  # Liveness probe configuration - accept sealed status to prevent CrashLoopBackOff
   livenessProbe:
     enabled: true
-    path: "/v1/sys/health?standbyok=true"
+    path: "{{ vault_liveness_probe_path }}"
     initialDelaySeconds: 60
+    failureThreshold: 2
+    periodSeconds: 5
+    successThreshold: 1
+    timeoutSeconds: 3
   
   # Allow multiple pods on same node (we only have 2 worker nodes)
   affinity: ""

@@ -27,6 +27,11 @@ vso_enabled: true
 vso_version: "1.3.0"
 vso_namespace: "vault-secrets-operator-system"
 
+# Liveness and readiness probe configuration
+# Accept sealed status to prevent CrashLoopBackOff
+vault_liveness_probe_path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+vault_readiness_probe_path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+
 # Vault only manages its own infrastructure
 # Individual tools (Jenkins, Nexus, Gitea) manage their own secrets
 vault_secrets: []

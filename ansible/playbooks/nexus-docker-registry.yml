@@ -1,0 +1,6 @@
+---
+- name: Configure Nexus Docker Registry with Vault Integration
+  hosts: tools
+  become: yes
+  roles:
+    - ../roles/nexus-docker-registry

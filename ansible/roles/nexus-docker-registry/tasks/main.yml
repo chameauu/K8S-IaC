@@ -35,7 +35,6 @@
     body_format: json
     body:
       - "NexusAuthenticatingRealm"
-      - "NexusAuthorizingRealm"
       - "DockerToken"
     status_code: [204, 200]
   register: realm_result
@@ -212,6 +211,21 @@
     - groups['k8s_cluster'] | length > 0
   tags:
     - k8s-config
+
+- name: Configure Vault integration
+  include_tasks: configure-vault.yml
+  when: 
+    - nexus_use_vault | default(true)
+  tags:
+    - nexus-vault
+
+- name: Create image pull secrets
+  include_tasks: create-image-pull-secrets.yml
+  when:
+    - nexus_use_vault | default(true)
+    - nexus_create_image_pull_secrets | default(true)
+  tags:
+    - nexus-image-pull
 
 - name: Display configuration summary
   debug:

@@ -4,7 +4,7 @@
 # Nexus connection settings
 nexus_url: "http://localhost:8081"
 nexus_admin_user: "admin"
-nexus_admin_password: "admin123"
+nexus_admin_password: "566c4a0b-d24c-4361-9011-da933822ca10"
 
 # Docker registry ports
 nexus_docker_hosted_port: 8082
@@ -38,3 +38,15 @@ nexus_wait_timeout: 300
 # Kubernetes nodes configuration
 nexus_registry_host: "10.0.2.30"
 configure_k8s_nodes: true  # Set to false to skip k8s node configuration
+
+# Vault integration
+nexus_use_vault: true
+nexus_create_image_pull_secrets: true
+vault_namespace: "vault"
+k8s_master_node: "master"
+
+# Namespaces to create imagePullSecrets in
+nexus_image_pull_namespaces:
+  - default
+  - jenkins
+  - nexus

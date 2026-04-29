@@ -5,21 +5,21 @@
 - name: Store secrets in Vault
   shell: |
     kubectl exec -n {{ vault_namespace | default('vault') }} vault-0 -- \
+      env VAULT_TOKEN="{{ vault_root_token }}" \
       vault kv put {{ item.path }} \
       {% for key, value in item.data.items() %}{{ key }}='{{ value }}' {% endfor %}
   delegate_to: "{{ k8s_master_node | default('master') }}"
   loop: "{{ vault_secrets_to_store }}"
   register: vault_secret_store_result
   changed_when: "'created_time' in vault_secret_store_result.stdout or 'version' in vault_secret_store_result.stdout"
-  no_log: true
-  environment:
-    VAULT_TOKEN: "{{ vault_root_token }}"
+  when: vault_secrets_to_store is defined and vault_secrets_to_store | length > 0
   tags:
     - vault-secrets
 
 - name: Create Vault policy
   shell: |
     kubectl exec -n {{ vault_namespace | default('vault') }} vault-0 -- \
+      env VAULT_TOKEN="{{ vault_root_token }}" \
       vault policy write {{ item.name }} - <<EOF
     {{ item.policy }}
     EOF
@@ -27,14 +27,14 @@
   loop: "{{ vault_policies_to_create }}"
   register: vault_policy_result
   changed_when: "'Success' in vault_policy_result.stdout"
-  environment:
-    VAULT_TOKEN: "{{ vault_root_token }}"
+  when: vault_policies_to_create is defined and vault_policies_to_create | length > 0
   tags:
     - vault-policies
 
 - name: Create Kubernetes auth role in Vault
   shell: |
     kubectl exec -n {{ vault_namespace | default('vault') }} vault-0 -- \
+      env VAULT_TOKEN="{{ vault_root_token }}" \
       vault write auth/kubernetes/role/{{ item.name }} \
       bound_service_account_names={{ item.bound_service_account_names }} \
       bound_service_account_namespaces={{ item.bound_service_account_namespaces }} \
@@ -44,8 +44,7 @@
   loop: "{{ vault_k8s_roles_to_create }}"
   register: vault_role_result
   changed_when: vault_role_result.rc == 0
-  environment:
-    VAULT_TOKEN: "{{ vault_root_token }}"
+  when: vault_k8s_roles_to_create is defined and vault_k8s_roles_to_create | length > 0
   tags:
     - vault-k8s-auth
 
@@ -81,6 +80,7 @@
   loop: "{{ vault_static_secrets_to_create }}"
   register: vault_static_secret_result
   changed_when: "'created' in vault_static_secret_result.stdout or 'configured' in vault_static_secret_result.stdout"
+  when: vault_static_secrets_to_create is defined and vault_static_secrets_to_create | length > 0
   tags:
     - vault-static-secrets
 
@@ -93,5 +93,6 @@
   retries: 30
   delay: 2
   changed_when: false
+  when: vault_static_secrets_to_create is defined and vault_static_secrets_to_create | length > 0
   tags:
     - vault-static-secrets
