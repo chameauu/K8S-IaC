@@ -4,5 +4,6 @@
 - name: restart gitea
   docker_container:
     name: "{{ gitea_container_name }}"
-    state: restarted
+    state: started
+    restart: yes
   become: yes

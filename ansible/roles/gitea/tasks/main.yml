@@ -85,10 +85,12 @@
   failed_when: false
 
 - name: Wait for Gitea configuration directory to be created
-  wait_for:
+  stat:
     path: /var/lib/docker/volumes/{{ gitea_data_volume }}/_data/gitea/conf
-    state: directory
-    timeout: 60
+  register: gitea_conf_dir
+  until: gitea_conf_dir.stat.exists and gitea_conf_dir.stat.isdir
+  retries: 12
+  delay: 5
   become: yes
   ignore_errors: yes
 
