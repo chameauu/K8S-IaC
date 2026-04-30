@@ -1,0 +1,88 @@
+---
+# Create Jenkins-specific NFS PersistentVolume and PersistentVolumeClaim for Helm deployment
+
+- name: Create Jenkins namespace
+  shell: kubectl create namespace {{ jenkins_helm_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+
+- name: Fix NFS directory permissions
+  shell: |
+    sudo chown -R 1000:1000 {{ jenkins_nfs_path }}
+    sudo chmod -R 777 {{ jenkins_nfs_path }}
+  changed_when: false
+
+- name: Create RBAC binding for nodes to access PVCs
+  shell: kubectl create clusterrolebinding system:nodes --clusterrole=system:node --user=system:nodes
+  register: rbac_result
+  failed_when: false
+  changed_when: "'created' in rbac_result.stdout"
+
+- name: Create Jenkins NFS PersistentVolume
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: jenkins-nfs-pv
+      labels:
+        type: nfs
+        app: jenkins
+    spec:
+      capacity:
+        storage: {{ jenkins_nfs_storage_size }}
+      volumeMode: Filesystem
+      accessModes:
+        - ReadWriteMany
+      persistentVolumeReclaimPolicy: Retain
+      storageClassName: nfs
+      mountOptions:
+        - hard
+        - nfsvers=4.1
+        - timeo=600
+        - retrans=2
+      nfs:
+        path: {{ jenkins_nfs_path }}
+        server: {{ nfs_server_ip }}
+    EOF
+  register: pv_result
+  changed_when: "'created' in pv_result.stdout or 'configured' in pv_result.stdout"
+
+- name: Create Jenkins NFS PersistentVolumeClaim
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: jenkins-nfs-pvc
+      namespace: {{ jenkins_helm_namespace }}
+    spec:
+      accessModes:
+        - ReadWriteMany
+      storageClassName: nfs
+      resources:
+        requests:
+          storage: {{ jenkins_nfs_storage_size }}
+      selector:
+        matchLabels:
+          app: jenkins
+    EOF
+  register: pvc_result
+  changed_when: "'created' in pvc_result.stdout or 'configured' in pvc_result.stdout"
+
+- name: Wait for PVC to be bound
+  shell: kubectl get pvc jenkins-nfs-pvc -n {{ jenkins_helm_namespace }} -o jsonpath='{.status.phase}'
+  register: pvc_status
+  until: pvc_status.stdout == "Bound"
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Display Jenkins NFS storage status
+  debug:
+    msg:
+      - "Jenkins NFS storage created:"
+      - "  PersistentVolume: jenkins-nfs-pv"
+      - "  PersistentVolumeClaim: jenkins-nfs-pvc ({{ pvc_status.stdout }})"
+      - "  NFS Server: {{ nfs_server_ip }}"
+      - "  NFS Path: {{ jenkins_nfs_path }}"
+      - "  Storage Size: {{ jenkins_nfs_storage_size }}"

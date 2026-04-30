@@ -1,0 +1,57 @@
+---
+# Jenkins Helm Chart Values
+# Deploys Jenkins on Kubernetes with NFS storage - Simplified single pod
+
+controller:
+  # Admin credentials
+  admin:
+    createSecret: true
+    username: admin
+    password: admin123
+  
+  # Service configuration
+  serviceType: NodePort
+  nodePort: 30080
+  
+  # Resource limits
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1024Mi"
+  
+  # Jenkins URL
+  jenkinsUrl: "http://10.0.2.10:30080"
+  jenkinsUriPrefix: ""
+  
+  # Disable sidecar containers to simplify deployment
+  sidecars:
+    configAutoReload:
+      enabled: false
+  
+  # Disable JCasC to avoid config reload issues
+  JCasC:
+    defaultConfig: false
+    configScripts: {}
+  
+  # Install minimal plugins
+  installPlugins: []
+
+# Persistence configuration - use existing NFS PVC
+persistence:
+  enabled: true
+  existingClaim: jenkins-nfs-pvc
+  storageClass: nfs
+  size: 1Gi
+  accessMode: ReadWriteMany
+
+# Service account
+serviceAccount:
+  create: true
+  name: jenkins
+
+# Disable agents for simplicity
+agent:
+  enabled: false

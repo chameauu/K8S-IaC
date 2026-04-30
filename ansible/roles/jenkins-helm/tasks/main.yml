@@ -1,78 +1,84 @@
 ---
+- name: Setup Jenkins vault credentials
+  include_tasks: setup-vault-credentials.yml
+
+- name: Create Jenkins NFS storage
+  include_tasks: create-nfs-storage.yml
+
 - name: Add Jenkins Helm repository
   kubernetes.core.helm_repository:
     name: "{{ jenkins_helm_repo_name }}"
     repo_url: "{{ jenkins_helm_repo_url }}"
-  delegate_to: localhost
 
 - name: Update Helm repositories
   command: helm repo update
   changed_when: false
-  delegate_to: localhost
+  failed_when: false
+  ignore_errors: yes
+
+- name: Copy Helm values file to remote
+  copy:
+    src: "../../k8s/jenkins-helm-values.yaml"
+    dest: "{{ jenkins_helm_values_file_remote }}"
+    mode: '0644'
 
 - name: Create Jenkins namespace
-  kubernetes.core.k8s:
-    name: "{{ jenkins_helm_namespace }}"
-    api_version: v1
-    kind: Namespace
-    state: present
-  delegate_to: localhost
+  shell: kubectl create namespace {{ jenkins_helm_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
 
 - name: Check if Jenkins is already installed
   command: helm list -n {{ jenkins_helm_namespace }} -o json
   register: helm_list
   changed_when: false
-  delegate_to: localhost
+  failed_when: false
 
 - name: Parse Helm list output
   set_fact:
     jenkins_installed: "{{ (helm_list.stdout | from_json) | selectattr('name', 'equalto', jenkins_helm_release_name) | list | length > 0 }}"
+  when: helm_list.rc == 0
 
-- name: Install Jenkins using Helm
-  kubernetes.core.helm:
-    name: "{{ jenkins_helm_release_name }}"
-    chart_ref: "{{ jenkins_helm_chart_name }}"
-    release_namespace: "{{ jenkins_helm_namespace }}"
-    create_namespace: true
-    values_files:
-      - "{{ jenkins_helm_values_file }}"
-    wait: true
-    wait_timeout: 10m
-  delegate_to: localhost
-  when: not jenkins_installed
+- name: Set jenkins_installed to false if helm list failed
+  set_fact:
+    jenkins_installed: false
+  when: helm_list.rc != 0
 
-- name: Upgrade Jenkins using Helm (if already installed)
-  kubernetes.core.helm:
-    name: "{{ jenkins_helm_release_name }}"
-    chart_ref: "{{ jenkins_helm_chart_name }}"
-    release_namespace: "{{ jenkins_helm_namespace }}"
-    values_files:
-      - "{{ jenkins_helm_values_file }}"
-    wait: true
-    wait_timeout: 10m
-  delegate_to: localhost
-  when: jenkins_installed
+- name: Install or Upgrade Jenkins using Helm
+  command: >
+    helm upgrade --install {{ jenkins_helm_release_name }} {{ jenkins_helm_chart_name }}
+    --namespace {{ jenkins_helm_namespace }}
+    --create-namespace
+    --values {{ jenkins_helm_values_file_remote }}
+    --wait
+    --timeout 10m
+  register: helm_result
+  changed_when: "'has been upgraded' in helm_result.stdout or 'has been installed' in helm_result.stdout"
 
 - name: Wait for Jenkins pod to be ready
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: "{{ jenkins_helm_namespace }}"
-    label_selectors:
-      - "app.kubernetes.io/component=jenkins-controller"
-    wait: true
-    wait_condition:
-      type: Ready
-      status: "True"
-    wait_timeout: 600
-  delegate_to: localhost
+  shell: kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=jenkins-controller -n {{ jenkins_helm_namespace }} --timeout=600s
+  changed_when: false
+  register: wait_result
+  retries: 2
+  delay: 10
+  until: wait_result.rc == 0
+
+- name: Get Jenkins admin password from secret
+  shell: kubectl get secret -n {{ jenkins_helm_namespace }} {{ jenkins_helm_release_name }} -o jsonpath='{.data.jenkins-admin-password}' | base64 -d
+  register: jenkins_password_secret
+  changed_when: false
+  failed_when: false
+
+- name: Set Jenkins password fact
+  set_fact:
+    jenkins_actual_password: "{{ jenkins_password_secret.stdout if jenkins_password_secret.rc == 0 else jenkins_admin_password }}"
 
 - name: Get Jenkins service details
-  kubernetes.core.k8s_info:
-    kind: Service
-    name: "{{ jenkins_helm_release_name }}"
-    namespace: "{{ jenkins_helm_namespace }}"
-  register: jenkins_service
-  delegate_to: localhost
+  shell: kubectl get svc {{ jenkins_helm_release_name }} -n {{ jenkins_helm_namespace }} -o json
+  register: jenkins_service_raw
+  changed_when: false
+
+- name: Parse service details
+  set_fact:
+    jenkins_service: "{{ jenkins_service_raw.stdout | from_json }}"
 
 - name: Display Jenkins access information
   debug:
@@ -81,14 +87,16 @@
       - "Jenkins Helm Installation Complete!"
       - "=========================================="
       - ""
-      - "Access Jenkins at: http://{{ hostvars['master']['ansible_host'] }}:{{ jenkins_nodeport }}"
+      - "Access Jenkins at: http://10.0.2.10:{{ jenkins_nodeport }}"
       - "Username: {{ jenkins_admin_username }}"
-      - "Password: {{ jenkins_admin_password }}"
+      - "Password: {{ jenkins_actual_password }}"
       - ""
       - "Helm Release: {{ jenkins_helm_release_name }}"
       - "Namespace: {{ jenkins_helm_namespace }}"
+      - "Storage: {{ jenkins_nfs_storage_size }} NFS ({{ nfs_server_ip }}:{{ jenkins_nfs_path }})"
       - ""
       - "To check status:"
+      - "  kubectl get pods -n {{ jenkins_helm_namespace }}"
       - "  helm status {{ jenkins_helm_release_name }} -n {{ jenkins_helm_namespace }}"
       - ""
       - "To upgrade:"

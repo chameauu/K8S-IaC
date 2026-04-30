@@ -7,8 +7,17 @@ jenkins_storage_size: 2Gi
 jenkins_storage_path: /mnt/jenkins-data
 jenkins_manifest_path: "{{ playbook_dir }}/../k8s/jenkins-simple.yaml"
 
+# Jenkins admin credentials (will be stored in vault)
+jenkins_admin_username: "admin"
+jenkins_admin_password: "admin123"
+
 # NFS Storage Configuration
 jenkins_use_nfs: true
-jenkins_nfs_storage_size: 10Gi
+jenkins_nfs_storage_size: 1Gi
 jenkins_nfs_path: /data/nfs/jenkins
 nfs_server_ip: 10.0.2.30
+
+# Kubernetes secrets configuration
+create_k8s_secrets: true  # Set to false to skip creating K8s secrets
+jenkins_k8s_namespaces:  # Additional namespaces to create secrets in
+  - default

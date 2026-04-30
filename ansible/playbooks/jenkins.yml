@@ -32,4 +32,4 @@
         msg: "{{ cluster_check.stdout_lines }}"
 
   roles:
-    - jenkins-simple
+    - ../roles/jenkins-helm

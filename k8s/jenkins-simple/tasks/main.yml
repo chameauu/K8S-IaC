@@ -1,4 +1,7 @@
 ---
+- name: Setup Jenkins vault credentials
+  include_tasks: setup-vault-credentials.yml
+
 - name: Create Jenkins namespace
   shell: kubectl create namespace {{ jenkins_namespace }} --dry-run=client -o yaml | kubectl apply -f -
   changed_when: false
@@ -7,12 +10,13 @@
   include_tasks: create-nfs-storage.yml
   when: jenkins_use_nfs | bool
 
-- name: Create Jenkins data directory on all nodes
-  shell: ssh {{ hostvars[item]['ansible_host'] }} "sudo mkdir -p {{ jenkins_storage_path }} && sudo chown -R 1000:1000 {{ jenkins_storage_path }}"
-  loop:
-    - node1
-    - node2
-  changed_when: false
+# Local storage on nodes - not needed when using NFS
+# - name: Create Jenkins data directory on all nodes
+#   shell: ssh {{ hostvars[item]['ansible_host'] }} "sudo mkdir -p {{ jenkins_storage_path }} && sudo chown -R 1000:1000 {{ jenkins_storage_path }}"
+#   loop:
+#     - node1
+#     - node2
+#   changed_when: false
 
 - name: Deploy Jenkins using manifest
   command: kubectl apply -f {{ jenkins_manifest_path }}
@@ -74,3 +78,10 @@
       - ""
       - "Storage: {{ jenkins_storage_path }} ({{ jenkins_storage_size }})"
       - "=========================================="
+
+- name: Create Kubernetes secrets for Jenkins credentials
+  include_tasks: create-k8s-secrets.yml
+  when:
+    - create_k8s_secrets | bool
+  tags:
+    - k8s-secrets

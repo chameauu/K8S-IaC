@@ -9,3 +9,8 @@ nexus_admin_password: "{{ vault_nexus_admin_password }}"
 nexus_docker_registry_user: "{{ vault_nexus_docker_registry_user }}"
 nexus_docker_registry_password: "{{ vault_nexus_docker_registry_password }}"
 # END NEXUS ANSIBLE MANAGED BLOCK
+# BEGIN JENKINS ANSIBLE MANAGED BLOCK
+# Jenkins configuration
+jenkins_admin_username: "{{ vault_jenkins_admin_username }}"
+jenkins_admin_password: "{{ vault_jenkins_admin_password }}"
+# END JENKINS ANSIBLE MANAGED BLOCK
