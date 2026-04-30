@@ -35,7 +35,6 @@
     body_format: json
     body:
       - "NexusAuthenticatingRealm"
-      - "NexusAuthorizingRealm"
       - "DockerToken"
     status_code: [204, 200]
   register: realm_result
@@ -212,6 +211,15 @@
     - groups['k8s_cluster'] | length > 0
   tags:
     - k8s-config
+
+- name: Create Kubernetes secrets for Nexus credentials
+  include_tasks: create-k8s-secrets.yml
+  when:
+    - create_k8s_secrets | bool
+    - groups['master'] is defined
+    - groups['master'] | length > 0
+  tags:
+    - k8s-secrets
 
 - name: Display configuration summary
   debug:

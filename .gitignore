@@ -13,3 +13,8 @@ download/
 deep-dive
 vault-init.json
 test
+
+# Ansible Vault password files
+.ansible_vault_pass
+*_vault_pass
+ansible_vault_pass*

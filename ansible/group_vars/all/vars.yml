@@ -1,0 +1,11 @@
+---
+# Unencrypted variables that reference encrypted vault variables
+# This file is safe to commit to version control
+# Each tool defines its variable references here
+# BEGIN NEXUS ANSIBLE MANAGED BLOCK
+# Nexus configuration
+nexus_admin_user: "admin"
+nexus_admin_password: "{{ vault_nexus_admin_password }}"
+nexus_docker_registry_user: "{{ vault_nexus_docker_registry_user }}"
+nexus_docker_registry_password: "{{ vault_nexus_docker_registry_password }}"
+# END NEXUS ANSIBLE MANAGED BLOCK

@@ -32,7 +32,6 @@
           - "NFS Exports:"
           - "  - /data/nfs/jenkins (for Jenkins persistent storage)"
           - "  - /data/nfs/shared (for shared storage)"
-          - "  - /data/nfs/vault (for Vault HA storage)"
           - ""
           - "NFS clients configured on all K8s nodes"
           - ""

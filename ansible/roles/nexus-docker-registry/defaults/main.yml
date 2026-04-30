@@ -3,8 +3,11 @@
 
 # Nexus connection settings
 nexus_url: "http://localhost:8081"
+# Initial admin password (will be stored in vault)
 nexus_admin_user: "admin"
-nexus_admin_password: "admin123"
+nexus_admin_password: "566c4a0b-d24c-4361-9011-da933822ca10"
+nexus_docker_registry_user: "admin"
+nexus_docker_registry_password: "566c4a0b-d24c-4361-9011-da933822ca10"
 
 # Docker registry ports
 nexus_docker_hosted_port: 8082
@@ -38,3 +41,9 @@ nexus_wait_timeout: 300
 # Kubernetes nodes configuration
 nexus_registry_host: "10.0.2.30"
 configure_k8s_nodes: true  # Set to false to skip k8s node configuration
+
+# Kubernetes secrets configuration
+create_k8s_secrets: true  # Set to false to skip creating K8s secrets
+nexus_k8s_namespaces:  # Additional namespaces to create secrets in
+  - jenkins
+  - default

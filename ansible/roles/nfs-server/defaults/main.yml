@@ -13,11 +13,6 @@ nfs_exports:
     group: "nogroup"
     mode: "0777"
     options: "*(rw,sync,no_subtree_check,no_root_squash)"
-  - path: /data/nfs/vault
-    owner: "100"
-    group: "1000"
-    mode: "0755"
-    options: "*(rw,sync,no_subtree_check,no_root_squash)"
 
 # NFS server packages
 nfs_server_packages:

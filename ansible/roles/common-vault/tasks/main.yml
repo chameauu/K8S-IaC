@@ -1,0 +1,7 @@
+---
+# Common vault management tasks
+# This role provides reusable tasks for managing vault credentials
+
+- name: Include vault credential management tasks
+  include_tasks: manage-vault-credentials.yml
+  when: vault_credentials is defined and vault_credentials | length > 0

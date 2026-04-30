@@ -1,0 +1,22 @@
+---
+# Playbook for Nexus Docker Registry setup with vault integration
+
+- name: Setup Nexus Docker Registry with Vault
+  hosts: tools
+  become: true
+  
+  tasks:
+    - name: Setup Nexus vault credentials
+      include_role:
+        name: ../roles/nexus-docker-registry
+        tasks_from: setup-vault-credentials
+      tags:
+        - vault
+        - nexus-vault
+    
+    - name: Configure Nexus Docker Registry
+      include_role:
+        name: ../roles/nexus-docker-registry
+      tags:
+        - nexus
+        - docker-registry
