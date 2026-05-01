@@ -21,6 +21,8 @@ Vagrant.configure("2") do |config|
     master.vm.network "forwarded_port", guest: 6443, host: 6443, host_ip: "127.0.0.1"
     # Hello World app NodePort forwarding
     master.vm.network "forwarded_port", guest: 30081, host: 30081, host_ip: "127.0.0.1"
+    # Fullstack app NodePort forwarding
+    master.vm.network "forwarded_port", guest: 30082, host: 9082, host_ip: "127.0.0.1"
     
     master.vm.provider "virtualbox" do |vb|
       vb.memory = 2048

@@ -1,0 +1,183 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: agent
+spec:
+  serviceAccountName: jenkins
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command:
+    - /busybox/cat
+    tty: true
+    volumeMounts:
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+  - name: kubectl
+    image: alpine/k8s:1.28.0
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do sleep 30; done"]
+  volumes:
+  - name: kaniko-secret
+    secret:
+      secretName: nexus-registry-secret-vault
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+'''
+        }
+    }
+    
+    environment {
+        REGISTRY = "10.0.2.30:8082"
+        BACKEND_IMAGE = "${REGISTRY}/fullstack-backend"
+        FRONTEND_IMAGE = "${REGISTRY}/fullstack-frontend"
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "=== Checking out code ==="
+                checkout scm
+                sh 'ls -la'
+            }
+        }
+        
+        stage('Build Backend Image') {
+            steps {
+                container('kaniko') {
+                    echo "=== Building and pushing backend image ==="
+                    sh '''
+                        /kaniko/executor \
+                            --context=${WORKSPACE}/backend \
+                            --dockerfile=${WORKSPACE}/backend/Dockerfile \
+                            --destination=${BACKEND_IMAGE}:${BUILD_NUMBER} \
+                            --destination=${BACKEND_IMAGE}:latest \
+                            --insecure \
+                            --skip-tls-verify \
+                            --cache=true \
+                            --cache-ttl=24h
+                    '''
+                }
+            }
+        }
+        
+        stage('Build Frontend Image') {
+            steps {
+                container('kaniko') {
+                    echo "=== Building and pushing frontend image ==="
+                    sh '''
+                        /kaniko/executor \
+                            --context=${WORKSPACE}/frontend \
+                            --dockerfile=${WORKSPACE}/frontend/Dockerfile \
+                            --destination=${FRONTEND_IMAGE}:${BUILD_NUMBER} \
+                            --destination=${FRONTEND_IMAGE}:latest \
+                            --insecure \
+                            --skip-tls-verify \
+                            --cache=true \
+                            --cache-ttl=24h
+                    '''
+                }
+            }
+        }
+        
+        stage('Deploy MySQL') {
+            steps {
+                container('kubectl') {
+                    echo "=== Deploying MySQL ==="
+                    script {
+                        sh '''#!/bin/sh
+                            set -e
+                            kubectl apply -f k8s/mysql.yaml -n default
+                            echo "Waiting for MySQL to be ready..."
+                            kubectl wait --for=condition=ready pod -l app=mysql -n default --timeout=180s || true
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy Backend') {
+            steps {
+                container('kubectl') {
+                    echo "=== Deploying Backend ==="
+                    script {
+                        sh '''#!/bin/sh
+                            set -e
+                            kubectl apply -f k8s/backend.yaml -n default
+                            kubectl rollout restart deployment/backend -n default
+                            kubectl rollout status deployment/backend -n default --timeout=120s
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy Frontend') {
+            steps {
+                container('kubectl') {
+                    echo "=== Deploying Frontend ==="
+                    script {
+                        sh '''#!/bin/sh
+                            set -e
+                            kubectl apply -f k8s/frontend.yaml -n default
+                            kubectl rollout restart deployment/frontend -n default
+                            kubectl rollout status deployment/frontend -n default --timeout=120s
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                container('kubectl') {
+                    echo "=== Verifying deployment ==="
+                    script {
+                        sh '''#!/bin/sh
+                            echo "=== MySQL ==="
+                            kubectl get pods -l app=mysql -n default
+                            echo ""
+                            echo "=== Backend ==="
+                            kubectl get pods -l app=backend -n default
+                            kubectl get service backend-service -n default
+                            echo ""
+                            echo "=== Frontend ==="
+                            kubectl get pods -l app=frontend -n default
+                            kubectl get service frontend-service -n default
+                        '''
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "✅ Full-stack deployment successful!"
+            echo "Access your app at: http://10.0.2.10:30082"
+        }
+        
+        failure {
+            echo "❌ Deployment failed!"
+            script {
+                try {
+                    container('kubectl') {
+                        sh 'kubectl get events --sort-by=.lastTimestamp -n default | tail -30'
+                    }
+                } catch (Exception e) {
+                    echo "Could not fetch events: ${e.message}"
+                }
+            }
+        }
+        
+        always {
+            echo "Pipeline completed. Agent pod will be terminated."
+        }
+    }
+}
