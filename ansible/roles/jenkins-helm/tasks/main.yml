@@ -5,6 +5,9 @@
 - name: Create Jenkins NFS storage
   include_tasks: create-nfs-storage.yml
 
+- name: Setup RBAC permissions for Jenkins
+  include_tasks: setup-rbac.yml
+
 - name: Add Jenkins Helm repository
   kubernetes.core.helm_repository:
     name: "{{ jenkins_helm_repo_name }}"

@@ -85,6 +85,30 @@
     replace: 'SystemdCgroup = true'
   notify: restart containerd
 
+- name: Configure containerd to use certs.d directory for registry config
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: "config_path = ''"
+    replace: "config_path = '/etc/containerd/certs.d'"
+  notify: restart containerd
+
+- name: Create containerd certs.d directory for Nexus registry
+  file:
+    path: /etc/containerd/certs.d/10.0.2.30:8082
+    state: directory
+    mode: '0755'
+
+- name: Configure Nexus as insecure registry in containerd
+  copy:
+    dest: /etc/containerd/certs.d/10.0.2.30:8082/hosts.toml
+    content: |
+      server = "http://10.0.2.30:8082"
+      
+      [host."http://10.0.2.30:8082"]
+        capabilities = ["pull", "resolve"]
+        skip_verify = true
+  notify: restart containerd
+
 - name: Wait for containerd to be ready
   wait_for:
     path: /var/run/containerd/containerd.sock

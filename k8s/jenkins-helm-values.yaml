@@ -31,13 +31,14 @@ controller:
     configAutoReload:
       enabled: false
   
-  # Disable JCasC to avoid config reload issues
-  JCasC:
-    defaultConfig: false
-    configScripts: {}
-  
-  # Install minimal plugins
-  installPlugins: []
+  # Install essential plugins (let Jenkins resolve versions)
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+    - credentials-binding
+    - docker-workflow
 
 # Persistence configuration - use existing NFS PVC
 persistence:
@@ -52,6 +53,20 @@ serviceAccount:
   create: true
   name: jenkins
 
-# Disable agents for simplicity
+# Enable Kubernetes agents for dynamic pod creation
 agent:
-  enabled: false
+  enabled: true
+  namespace: jenkins
+  image:
+    repository: jenkins/inbound-agent
+    tag: latest
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  # Allow agents to run on any node
+  podRetention: "Never"
+  showRawYaml: false
