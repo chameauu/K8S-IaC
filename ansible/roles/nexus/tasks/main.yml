@@ -42,7 +42,9 @@
     volumes:
       - "{{ nexus_data_dir }}:/nexus-data"
     env:
-      INSTALL4J_ADD_VM_PARAMS: "{{ nexus_java_opts }}"
+      INSTALL4J_ADD_VM_PARAMS: "{{ nexus_java_opts }} -Dnexus.security.randompassword=false"
+      NEXUS_SECURITY_RANDOMPASSWORD: "false"
+      NEXUS_SECURITY_INITIAL_PASSWORD: "{{ vault_nexus_password }}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/ || exit 1"]
       interval: 30s

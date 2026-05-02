@@ -3,9 +3,15 @@
   hosts: tools
   become: true
   roles:
-    - ../roles/docker
-    - ../roles/kubectl
-    - ../roles/helm
-    - ../roles/nexus
-    - ../roles/nexus-docker-registry
-    - ../roles/gitea
+    - role: ../roles/docker
+      tags: docker
+    - role: ../roles/kubectl
+      tags: kubectl
+    - role: ../roles/helm
+      tags: helm
+    - role: ../roles/nexus
+      tags: nexus
+    - role: ../roles/nexus-docker-registry
+      tags: nexus-registry
+    - role: ../roles/gitea
+      tags: gitea

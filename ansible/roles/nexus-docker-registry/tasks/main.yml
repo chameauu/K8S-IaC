@@ -18,12 +18,14 @@
 
 - name: Display Nexus status
   debug:
-    msg: "Nexus is {{ 'ready' if nexus_status.status == 200 else 'not ready' }}"
+    msg: "Nexus is {{ 'ready' if nexus_status.status | default(0) == 200 else 'not ready' }}"
 
 - name: Fail if Nexus is not ready
   fail:
     msg: "Nexus is not ready after {{ nexus_wait_timeout }} seconds. Check 'docker logs nexus'"
-  when: nexus_status.status != 200
+  when: 
+    - nexus_status.status is defined
+    - nexus_status.status != 200
 
 - name: Enable Docker Bearer Token Realm
   uri:
@@ -42,7 +44,9 @@
 - name: Display realm configuration result
   debug:
     msg: "Docker Bearer Token Realm enabled"
-  when: realm_result.status in [200, 204]
+  when: 
+    - realm_result.status is defined
+    - realm_result.status in [200, 204]
 
 - name: Create blob store for docker-hosted
   uri:
