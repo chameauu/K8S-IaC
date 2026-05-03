@@ -1,7 +1,4 @@
 ---
-- name: Setup Jenkins vault credentials
-  include_tasks: setup-vault-credentials.yml
-
 - name: Create Jenkins namespace
   shell: kubectl create namespace {{ jenkins_namespace }} --dry-run=client -o yaml | kubectl apply -f -
   changed_when: false

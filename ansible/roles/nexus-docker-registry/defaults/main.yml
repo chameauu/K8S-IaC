@@ -3,11 +3,11 @@
 
 # Nexus connection settings
 nexus_url: "http://localhost:8081"
-# Initial admin password (will be stored in vault)
+# Admin credentials (from vault)
 nexus_admin_user: "admin"
-nexus_admin_password: "566c4a0b-d24c-4361-9011-da933822ca10"
-nexus_docker_registry_user: "admin"
-nexus_docker_registry_password: "566c4a0b-d24c-4361-9011-da933822ca10"
+nexus_admin_password: "{{ vault_nexus_password }}"
+nexus_docker_registry_user: "{{ vault_nexus_docker_registry_user }}"
+nexus_docker_registry_password: "{{ vault_nexus_docker_registry_password }}"
 
 # Docker registry ports
 nexus_docker_hosted_port: 8082

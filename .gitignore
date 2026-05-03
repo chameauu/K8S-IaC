@@ -17,3 +17,5 @@ test
 .ansible_vault_pass
 *_vault_pass
 ansible_vault_pass*
+hosts.ini
+fullstack-app/

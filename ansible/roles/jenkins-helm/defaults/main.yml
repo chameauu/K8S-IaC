@@ -7,8 +7,9 @@ jenkins_helm_release_name: jenkins
 jenkins_helm_namespace: jenkins
 jenkins_helm_values_file: "{{ playbook_dir }}/../k8s/jenkins-helm-values.yaml"
 jenkins_helm_values_file_remote: "/tmp/jenkins-helm-values.yaml"
-jenkins_admin_username: admin
-jenkins_admin_password: admin123
+# Jenkins credentials from vault
+jenkins_admin_username: "{{ vault_jenkins_admin_username | default('admin') }}"
+jenkins_admin_password: "{{ vault_jenkins_admin_password | default('admin123') }}"
 jenkins_nodeport: 30080
 
 # NFS storage configuration

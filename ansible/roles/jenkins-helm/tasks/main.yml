@@ -1,7 +1,4 @@
 ---
-- name: Setup Jenkins vault credentials
-  include_tasks: setup-vault-credentials.yml
-
 - name: Create Jenkins NFS storage
   include_tasks: create-nfs-storage.yml
 
@@ -20,10 +17,13 @@
   ignore_errors: yes
 
 - name: Copy Helm values file to remote
-  copy:
+  template:
     src: "../../k8s/jenkins-helm-values.yaml"
     dest: "{{ jenkins_helm_values_file_remote }}"
     mode: '0644'
+  vars:
+    jenkins_admin_username: "{{ vault_jenkins_admin_username | default('admin') }}"
+    jenkins_admin_password: "{{ vault_jenkins_admin_password | default('admin123') }}"
 
 - name: Create Jenkins namespace
   shell: kubectl create namespace {{ jenkins_helm_namespace }} --dry-run=client -o yaml | kubectl apply -f -
@@ -51,13 +51,11 @@
     --namespace {{ jenkins_helm_namespace }}
     --create-namespace
     --values {{ jenkins_helm_values_file_remote }}
-    --wait
-    --timeout 10m
   register: helm_result
   changed_when: "'has been upgraded' in helm_result.stdout or 'has been installed' in helm_result.stdout"
 
-- name: Wait for Jenkins pod to be ready
-  shell: kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=jenkins-controller -n {{ jenkins_helm_namespace }} --timeout=600s
+- name: Wait for Jenkins StatefulSet to be ready
+  shell: kubectl rollout status statefulset/{{ jenkins_helm_release_name }} -n {{ jenkins_helm_namespace }} --timeout=30m
   changed_when: false
   register: wait_result
   retries: 2

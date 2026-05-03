@@ -3,11 +3,11 @@
 # Deploys Jenkins on Kubernetes with NFS storage - Simplified single pod
 
 controller:
-  # Admin credentials
+  # Admin credentials from vault
   admin:
     createSecret: true
-    username: admin
-    password: admin123
+    username: "{{ jenkins_admin_username }}"
+    password: "{{ jenkins_admin_password }}"
   
   # Service configuration
   serviceType: NodePort

@@ -22,7 +22,7 @@
 # Setup NFS storage (required by Jenkins)
 - import_playbook: setup-nfs.yml
 
-- import_playbook: setup-ansible-vault.yml
+# - import_playbook: setup-ansible-vault.yml
 # Install kubectl and Helm on tools VM
 - name: Install kubectl and Helm on tools VM
   hosts: tools

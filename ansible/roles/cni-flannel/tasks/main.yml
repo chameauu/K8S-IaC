@@ -44,7 +44,7 @@
   environment:
     KUBECONFIG: /home/vagrant/.kube/config
   register: flannel_ready
-  until: flannel_ready.stdout | int >= 3
+  until: flannel_ready.stdout | int >= 1
   retries: 30
   delay: 5
   changed_when: false

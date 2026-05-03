@@ -151,6 +151,7 @@ EOF
       ansible.limit = "all"
       ansible.verbose = "v"
       ansible.config_file = "ansible/ansible.cfg"
+      ansible.vault_password_file = "/home/chameau/.ansible_vault_pass"
     end
   end
 end
