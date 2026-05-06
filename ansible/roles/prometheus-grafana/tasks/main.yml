@@ -1,0 +1,106 @@
+---
+# Main tasks for Prometheus and Grafana deployment
+
+- name: Add Prometheus Helm repository
+  command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  register: helm_repo_add
+  changed_when: "'already exists' not in helm_repo_add.stderr"
+  failed_when: false
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+  failed_when: false
+
+- name: Create monitoring namespace
+  shell: kubectl create namespace {{ prometheus_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+
+- name: Label monitoring namespace
+  shell: |
+    kubectl label namespace {{ prometheus_namespace }} monitoring=enabled --overwrite
+  changed_when: false
+
+- name: Create temporary directory for Helm values
+  tempfile:
+    state: directory
+    suffix: _prometheus
+  register: prometheus_temp_dir
+
+- name: Generate Prometheus Helm values from template
+  template:
+    src: prometheus-values.yaml.j2
+    dest: "{{ prometheus_temp_dir.path }}/prometheus-values.yaml"
+
+- name: Install Prometheus stack via Helm
+  shell: |
+    helm upgrade --install {{ prometheus_release_name }} {{ prometheus_chart_name }} \
+      --namespace {{ prometheus_namespace }} \
+      --values {{ prometheus_temp_dir.path }}/prometheus-values.yaml \
+      --wait \
+      --timeout 10m
+  register: helm_install_result
+  changed_when: "'has been upgraded' in helm_install_result.stdout or 'has been installed' in helm_install_result.stdout"
+
+- name: Wait for Prometheus StatefulSet to be ready
+  shell: |
+    kubectl rollout status statefulset/prometheus-prometheus-kube-prometheus-prometheus \
+      -n {{ prometheus_namespace }} \
+      --timeout=30m
+  changed_when: false
+
+- name: Wait for Grafana Deployment to be ready
+  shell: |
+    kubectl rollout status deployment/prometheus-grafana \
+      -n {{ prometheus_namespace }} \
+      --timeout=10m
+  changed_when: false
+
+- name: Verify Prometheus pods are running
+  shell: |
+    kubectl get pods -n {{ prometheus_namespace }} -o wide
+  register: prometheus_pods
+  changed_when: false
+
+- name: Display Prometheus pods status
+  debug:
+    msg: "{{ prometheus_pods.stdout }}"
+
+- name: Verify services are accessible
+  shell: |
+    kubectl get svc -n {{ prometheus_namespace }} -o wide
+  register: prometheus_services
+  changed_when: false
+
+- name: Display services status
+  debug:
+    msg: "{{ prometheus_services.stdout }}"
+
+- name: Display access information
+  debug:
+    msg: |
+      ========================================
+      Prometheus & Grafana Deployment Complete
+      ========================================
+      
+      Prometheus:
+        URL: http://10.0.2.10:{{ prometheus_service_port }}
+        Status: Check "Status" → "Targets" to see discovered pods
+      
+      Grafana:
+        URL: http://10.0.2.10:{{ grafana_service_port }}
+        Username: {{ grafana_admin_user }}
+        Password: (from vault)
+      
+      Alertmanager:
+        URL: http://10.0.2.10:{{ alertmanager_service_port }}
+      
+      To verify pod scraping:
+        kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.metadata.annotations.prometheus\.io/scrape}{"\n"}{end}'
+      
+      ========================================
+
+- name: Clean up temporary directory
+  file:
+    path: "{{ prometheus_temp_dir.path }}"
+    state: absent

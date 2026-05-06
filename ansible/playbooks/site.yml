@@ -43,3 +43,12 @@
 
 # Deploy Jenkins on Kubernetes (depends on NFS)
 - import_playbook: jenkins.yml
+
+# Deploy Prometheus and Grafana monitoring stack
+- name: Deploy Prometheus and Grafana monitoring
+  hosts: tools
+  roles:
+    - ../roles/prometheus-grafana
+  tags:
+    - monitoring
+    - prometheus

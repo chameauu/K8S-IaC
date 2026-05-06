@@ -1,0 +1,32 @@
+---
+# Prometheus Stack Configuration
+prometheus_namespace: monitoring
+prometheus_release_name: prometheus
+prometheus_chart_name: prometheus-community/kube-prometheus-stack
+prometheus_chart_version: "latest"
+
+# Prometheus Configuration
+prometheus_retention: 30d
+prometheus_storage_size: 1Gi
+prometheus_replicas: 1
+
+# Grafana Configuration
+grafana_admin_user: admin
+grafana_admin_password: "{{ vault_grafana_password | default('admin123') }}"
+grafana_storage_size: 1Gi
+
+# Service Configuration
+prometheus_service_type: NodePort
+prometheus_service_port: 30090
+grafana_service_type: NodePort
+grafana_service_port: 30091
+alertmanager_service_port: 30093
+
+# Pod Annotation Scraping
+prometheus_pod_scrape_enabled: true
+prometheus_scrape_interval: 30s
+prometheus_scrape_timeout: 10s
+
+# NFS Storage Configuration
+prometheus_storage_class: nfs
+alertmanager_storage_class: nfs

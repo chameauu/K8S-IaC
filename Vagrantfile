@@ -23,6 +23,10 @@ Vagrant.configure("2") do |config|
     master.vm.network "forwarded_port", guest: 30081, host: 30081, host_ip: "127.0.0.1"
     # Fullstack app NodePort forwarding
     master.vm.network "forwarded_port", guest: 30082, host: 9082, host_ip: "127.0.0.1"
+    # Monitoring stack NodePort forwarding
+    master.vm.network "forwarded_port", guest: 30090, host: 30090, host_ip: "127.0.0.1"  # Prometheus
+    master.vm.network "forwarded_port", guest: 30091, host: 30091, host_ip: "127.0.0.1"  # Grafana
+    master.vm.network "forwarded_port", guest: 30093, host: 30093, host_ip: "127.0.0.1"  # Alertmanager
     
     master.vm.provider "virtualbox" do |vb|
       vb.memory = 2048
