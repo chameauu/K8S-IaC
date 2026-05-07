@@ -31,6 +31,17 @@
     - ../roles/kubectl
     - ../roles/helm
 
+
+
+# Deploy NGINX Ingress Controller
+- name: Deploy NGINX Ingress Controller
+  hosts: tools
+  roles:
+    - ../roles/nginx-ingress
+  tags:
+    - ingress
+    - nginx-ingress
+
 # Install remaining tools (Docker, Nexus, and Gitea)
 - name: Install Docker, Nexus, and Gitea on tools VM
   hosts: tools

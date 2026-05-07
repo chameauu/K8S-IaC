@@ -1,0 +1,91 @@
+---
+# Main tasks for NGINX Ingress Controller deployment
+
+- name: Add NGINX Ingress Helm repository
+  command: helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+  register: helm_repo_add
+  changed_when: "'already exists' not in helm_repo_add.stderr"
+  failed_when: false
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+  failed_when: false
+
+- name: Create ingress-nginx namespace
+  shell: kubectl create namespace {{ nginx_ingress_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+
+- name: Label ingress-nginx namespace
+  shell: |
+    kubectl label namespace {{ nginx_ingress_namespace }} name=ingress-nginx --overwrite
+  changed_when: false
+
+- name: Install NGINX Ingress Controller via Helm
+  shell: |
+    helm upgrade --install {{ nginx_ingress_release_name }} {{ nginx_ingress_chart_name }} \
+      --version {{ nginx_ingress_chart_version }} \
+      --namespace {{ nginx_ingress_namespace }} \
+      --set controller.service.type={{ nginx_ingress_service_type }} \
+      --set controller.service.nodePorts.http={{ nginx_ingress_http_port }} \
+      --set controller.service.nodePorts.https={{ nginx_ingress_https_port }} \
+      --set controller.replicaCount={{ nginx_ingress_replicas }} \
+      --set controller.resources.requests.cpu={{ nginx_ingress_cpu_request }} \
+      --set controller.resources.requests.memory={{ nginx_ingress_memory_request }} \
+      --set controller.resources.limits.cpu={{ nginx_ingress_cpu_limit }} \
+      --set controller.resources.limits.memory={{ nginx_ingress_memory_limit }} \
+      --wait \
+      --timeout 10m
+  register: helm_install_result
+  changed_when: "'has been upgraded' in helm_install_result.stdout or 'has been installed' in helm_install_result.stdout"
+
+- name: Wait for NGINX Ingress Controller Deployment to be ready
+  shell: |
+    kubectl rollout status deployment/{{ nginx_ingress_release_name }}-controller \
+      -n {{ nginx_ingress_namespace }} \
+      --timeout=10m
+  changed_when: false
+
+- name: Get NGINX Ingress Controller pods
+  shell: kubectl get pods -n {{ nginx_ingress_namespace }} -o wide
+  register: ingress_pods
+  changed_when: false
+
+- name: Display NGINX Ingress Controller pods
+  debug:
+    msg: "{{ ingress_pods.stdout }}"
+
+- name: Get NGINX Ingress Controller service
+  shell: kubectl get svc -n {{ nginx_ingress_namespace }} -o wide
+  register: ingress_service
+  changed_when: false
+
+- name: Display NGINX Ingress Controller service
+  debug:
+    msg: "{{ ingress_service.stdout }}"
+
+- name: Display access information
+  debug:
+    msg: |
+      ========================================
+      NGINX Ingress Controller Deployment Complete
+      ========================================
+      
+      Ingress Controller:
+        Namespace: {{ nginx_ingress_namespace }}
+        Chart Version: {{ nginx_ingress_chart_version }}
+        Service Type: {{ nginx_ingress_service_type }}
+        HTTP Port: {{ nginx_ingress_http_port }}
+        HTTPS Port: {{ nginx_ingress_https_port }}
+      
+      Next Steps:
+        1. Create Ingress resources for your services
+        2. Add domain names to /etc/hosts on your host machine
+        3. Access services via domain names (e.g., http://jenkins.local:31080)
+      
+      Verify:
+        kubectl get pods -n {{ nginx_ingress_namespace }}
+        kubectl get svc -n {{ nginx_ingress_namespace }}
+        kubectl get ingressclass
+      
+      ========================================

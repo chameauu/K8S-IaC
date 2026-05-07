@@ -27,6 +27,8 @@ Vagrant.configure("2") do |config|
     master.vm.network "forwarded_port", guest: 30090, host: 30090, host_ip: "127.0.0.1"  # Prometheus
     master.vm.network "forwarded_port", guest: 30091, host: 30091, host_ip: "127.0.0.1"  # Grafana
     master.vm.network "forwarded_port", guest: 30093, host: 30093, host_ip: "127.0.0.1"  # Alertmanager
+    # Ingress Controller HTTP port forwarding
+    master.vm.network "forwarded_port", guest: 31080, host: 8080, host_ip: "127.0.0.1"  # Ingress HTTP
     
     master.vm.provider "virtualbox" do |vb|
       vb.memory = 2048

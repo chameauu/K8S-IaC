@@ -30,3 +30,10 @@ prometheus_scrape_timeout: 10s
 # NFS Storage Configuration
 prometheus_storage_class: nfs
 alertmanager_storage_class: nfs
+
+# Ingress Configuration
+prometheus_ingress_enabled: true
+prometheus_ingress_host: prometheus.local
+grafana_ingress_enabled: true
+grafana_ingress_host: grafana.local
+

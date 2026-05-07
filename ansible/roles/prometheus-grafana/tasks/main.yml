@@ -76,6 +76,75 @@
   debug:
     msg: "{{ prometheus_services.stdout }}"
 
+- name: Create Grafana Ingress resource
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: grafana-ingress
+      namespace: {{ prometheus_namespace }}
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+        nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: {{ grafana_ingress_host }}
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-grafana
+                port:
+                  number: 80
+    EOF
+  when: grafana_ingress_enabled | bool
+  register: grafana_ingress_result
+  changed_when: "'created' in grafana_ingress_result.stdout or 'configured' in grafana_ingress_result.stdout"
+
+- name: Create Prometheus Ingress resource
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: prometheus-ingress
+      namespace: {{ prometheus_namespace }}
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+        nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: {{ prometheus_ingress_host }}
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-kube-prometheus-prometheus
+                port:
+                  number: 9090
+    EOF
+  when: prometheus_ingress_enabled | bool
+  register: prometheus_ingress_result
+  changed_when: "'created' in prometheus_ingress_result.stdout or 'configured' in prometheus_ingress_result.stdout"
+
+- name: Verify Ingress resources
+  shell: kubectl get ingress -n {{ prometheus_namespace }}
+  register: ingress_status
+  changed_when: false
+  when: prometheus_ingress_enabled | bool or grafana_ingress_enabled | bool
+
+- name: Display Ingress status
+  debug:
+    msg: "{{ ingress_status.stdout }}"
+  when: prometheus_ingress_enabled | bool or grafana_ingress_enabled | bool
+
 - name: Display access information
   debug:
     msg: |
@@ -84,17 +153,31 @@
       ========================================
       
       Prometheus:
-        URL: http://10.0.2.10:{{ prometheus_service_port }}
+        NodePort URL: http://10.0.2.10:{{ prometheus_service_port }}
+        {% if prometheus_ingress_enabled %}Ingress URL: http://{{ prometheus_ingress_host }}:31080{% endif %}
+
         Status: Check "Status" → "Targets" to see discovered pods
       
       Grafana:
-        URL: http://10.0.2.10:{{ grafana_service_port }}
+        NodePort URL: http://10.0.2.10:{{ grafana_service_port }}
+        {% if grafana_ingress_enabled %}Ingress URL: http://{{ grafana_ingress_host }}:31080{% endif %}
+
         Username: {{ grafana_admin_user }}
         Password: (from vault)
       
       Alertmanager:
         URL: http://10.0.2.10:{{ alertmanager_service_port }}
       
+      {% if prometheus_ingress_enabled or grafana_ingress_enabled %}
+      Ingress Setup:
+        Add to /etc/hosts on your host machine:
+          127.0.0.1 {{ grafana_ingress_host }}
+          127.0.0.1 {{ prometheus_ingress_host }}
+        
+        Add port forwarding to Vagrantfile:
+          master.vm.network "forwarded_port", guest: 31080, host: 31080, host_ip: "127.0.0.1"
+      {% endif %}
+
       To verify pod scraping:
         kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.metadata.annotations.prometheus\.io/scrape}{"\n"}{end}'
       

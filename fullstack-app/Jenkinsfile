@@ -160,7 +160,8 @@ spec:
     post {
         success {
             echo "✅ Full-stack deployment successful!"
-            echo "Access your app at: http://10.0.2.10:30082"
+            echo "Access your app at: http://fullstack.local:8080"
+            echo "NodePort URL (still works): http://10.0.2.10:30082"
         }
         
         failure {
