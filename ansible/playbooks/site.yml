@@ -1,11 +1,5 @@
 ---
-# Main playbook for setting up complete Kubernetes cluster
-# Execution order follows dependency chain:
-# 1. K8s cluster (common → master → workers)
-# 2. NFS storage (required by Jenkins)
-# 3. kubectl + Helm (required by tool deployments)
-# 4. Remaining tools (Docker, Nexus, Gitea)
-# 5. Jenkins (depends on NFS)
+
 
 - name: Common node setup for all Kubernetes nodes
   hosts: k8s_cluster
@@ -19,10 +13,9 @@
 # Join worker nodes to cluster
 - import_playbook: workers.yml
 
-# Setup NFS storage (required by Jenkins)
+# Setup NFS storage 
 - import_playbook: setup-nfs.yml
 
-# - import_playbook: setup-ansible-vault.yml
 # Install kubectl and Helm on tools VM
 - name: Install kubectl and Helm on tools VM
   hosts: tools
@@ -52,7 +45,7 @@
     - ../roles/nexus-docker-registry
     - ../roles/gitea
 
-# Deploy Jenkins on Kubernetes (depends on NFS)
+# Deploy Jenkins on Kubernetes
 - import_playbook: jenkins.yml
 
 # Deploy Prometheus and Grafana monitoring stack

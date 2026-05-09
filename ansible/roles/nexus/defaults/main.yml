@@ -4,7 +4,7 @@ nexus_version: "3.75.1"
 nexus_port: 8081
 nexus_docker_port: 8082
 nexus_data_dir: /opt/nexus-data
-nexus_admin_password: "admin123"  # Change this in production!
+nexus_admin_password: "{{ vault_nexus_password }}"  
 
 # Docker image
 nexus_image: "sonatype/nexus3:{{ nexus_version }}"

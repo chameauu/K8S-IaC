@@ -5,15 +5,7 @@
   hosts: tools
   become: true
   
-  tasks:
-    - name: Setup Nexus vault credentials
-      include_role:
-        name: ../roles/nexus-docker-registry
-        tasks_from: setup-vault-credentials
-      tags:
-        - vault
-        - nexus-vault
-    
+  tasks: 
     - name: Configure Nexus Docker Registry
       include_role:
         name: ../roles/nexus-docker-registry

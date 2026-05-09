@@ -1,4 +1,0 @@
----
-# Combined playbook to setup master and workers
-- import_playbook: master.yml
-- import_playbook: workers.yml
